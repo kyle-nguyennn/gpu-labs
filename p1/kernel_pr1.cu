@@ -1,4 +1,4 @@
-#define  TILE_WIDTH 4
+#define TILE_WIDTH 4
 
 // System includes
 #include <stdio.h>
