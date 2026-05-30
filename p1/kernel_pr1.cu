@@ -60,12 +60,36 @@ void matrixMultiplication(float* A, float* B, float* D, int w)
 __global__ void MatrixMulCUDA(float* C, float* A, float* B, int matrixWidth) 
 {
     // Allocate shared memory to be used by a block
-    
+    __shared__ float As[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float Bs[TILE_WIDTH][TILE_WIDTH];
     // Load values into the shared memory
-
-    // Perform multiplication and accumulate results into thread-local memory
-
-    // Synchronize threads of a block as required  
+    // x is column-like direction, y is row-like direction
+    // row and col are global matrix index
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
+    int row = blockIdx.y*blockDim.y + ty;
+    int col = blockIdx.x*blockDim.x + tx;
+    int K = matrixWidth / TILE_WIDTH;
+    float sum = 0.0;
+    for (int k=0; k<K; k++) { // loading by phase
+        // There are TILE_WIDTH*TILE_WIDTH threads per block
+        // Each thread fill exactly 1 element of As and Bs
+        // From [row, col] of the global matrix A and B (1D coordinate)
+        // Load from global index [row, k*TILE_WIDTH+tx] to As[ty][tx]
+        // Load from global index [k*TILE_WIDTH+ty, col] to Bs[ty][tx]
+        As[ty][tx] = A[row*matrixWidth + k*TILE_WIDTH+tx];
+        Bs[ty][tx] = B[(k*TILE_WIDTH+ty)*matrixWidth + col];
+        __syncthreads(); // use barrier per phase so all threads wait before calculating dot product
+        
+        // Perform multiplication and accumulate results into thread-local memory
+        for (int i=0; i<TILE_WIDTH; i++) {
+            sum += As[ty][i]*Bs[i][tx];
+        }
+        // Synchronize threads of a block as required
+        __syncthreads(); // use barrier per phase so all threads wait before overriding As/Bs
+    }
+    // Write back to global memory
+    C[row*matrixWidth + col] = sum;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
