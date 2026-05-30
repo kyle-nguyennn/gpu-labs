@@ -1,0 +1,3 @@
+# Ignore a testing solution, if present
+student_solution.h
+bitonic_solution.cu
