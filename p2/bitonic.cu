@@ -19,7 +19,7 @@
 DTYPE* d_arr;
 int d_size;
 
-__global__ void compare_exchange_cuda(DTYPE* arr, int i, int j) {
+__global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
     int k = blockIdx.x * blockDim.x + threadIdx.x;
     if (k >= d_size) return; // even after padding, d_size can be smaller than block_size (256)
     bool asc = (k & (1 << i)) == 0;
@@ -97,7 +97,7 @@ void bitonic_sort()
     int num_stages = (int)log2((float)d_size);
     for (int i=1; i<=num_stages; i++) {
         for (int j=i-1; j >= 0; j--) {
-            compare_exchange_cuda<<<grid_size, block_size>>>(d_arr, i, j);
+            compare_exchange_cuda<<<grid_size, block_size>>>(d_arr, i, j, d_size);
         }
     }
 }
