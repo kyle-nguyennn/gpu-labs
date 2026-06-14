@@ -8,8 +8,6 @@
 #include "main.h"
 #include "student.h"
 
-#define BLOCK_DIM 256
-
 /**********************************************************************************
  * 
  * Implement your GPU device kernel(s) here (e.g., the bitonic sort kernel).
@@ -32,10 +30,57 @@ __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
     }
 }
 
+/**
+ * Shared-memory kernel: each block owns a contiguous TILE-element chunk.
+ * It loads the chunk into shared memory once, runs every bitonic step from
+ * j_start down to 0 locally (all strides < TILE stay inside the chunk), then
+ * writes the chunk back once. This collapses j_start+1 global kernel launches
+ * into a single launch and removes the per-step global round trips.
+ *
+ * Grid-stride loops decouple TILE from BLOCK_DIM: each thread processes
+ * TILE/BLOCK_DIM elements on load/store and TILE/2/BLOCK_DIM pairs per step.
+ */
+__global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
+    __shared__ DTYPE tile[TILE];
+    int base = blockIdx.x * TILE;
+
+    // grid-stride load: bring the block's chunk into shared memory
+    for (int e = threadIdx.x; e < TILE; e += BLOCK_DIM) {
+        tile[e] = arr[base + e];
+    }
+    __syncthreads();
+
+    int pairs = TILE / 2;
+    for (int j = j_start; j >= 0; j--) {
+        int stride = 1 << j;
+        // grid-stride over the TILE/2 compare-exchange pairs
+        for (int t = threadIdx.x; t < pairs; t += BLOCK_DIM) {
+            // map pair index t to the "low" element of its pair within the tile
+            int low = (t / stride) * (2 * stride) + (t % stride);
+            int partner = low + stride;
+            // direction is stage-based, so use the global index
+            bool asc = ((base + low) & (1 << i)) == 0;
+            DTYPE a = tile[low];
+            DTYPE b = tile[partner];
+            if ((asc && a > b) || (!asc && a < b)) {
+                tile[low] = b;
+                tile[partner] = a;
+            }
+        }
+        __syncthreads(); // every step must complete before the next reads
+    }
+
+    // grid-stride store: write the sorted chunk back to global memory
+    for (int e = threadIdx.x; e < TILE; e += BLOCK_DIM) {
+        arr[base + e] = tile[e];
+    }
+}
+
 __global__ void fill_tail(DTYPE* arr, int start, int end, DTYPE value) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x + start;
     if (idx < end) arr[idx] = value;
 }
+
 
 /**********************************************************************************
  * 
@@ -93,10 +138,25 @@ void bitonic_sort()
     dim3 block_size(BLOCK_DIM);
     // integer ceil division (a + b -1) / b
     dim3 grid_size((d_size + BLOCK_DIM - 1) / BLOCK_DIM);
+    // shared kernel: one block per TILE-element chunk
+    dim3 grid_shared(d_size / TILE);
+
+    // A step j keeps its partner (stride 2^j) inside a TILE chunk when
+    // 2^(j+1) <= TILE, i.e. j < log2(TILE).
+    int log_tile = (int)log2((float)TILE);
+    // Only use the shared kernel when the array is at least one full tile.
+    bool use_shared = (d_size >= TILE);
+
     // stage i: construct sorted subsequence of size 2^i from bitonic sequence of size 2^i
     int num_stages = (int)log2((float)d_size);
     for (int i=1; i<=num_stages; i++) {
         for (int j=i-1; j >= 0; j--) {
+            if (use_shared && j < log_tile) {
+                // remaining steps (j..0) all fit in a tile: finish them in
+                // a single shared-memory launch, then move to next stage
+                bitonic_shared<<<grid_shared, block_size>>>(d_arr, i, j);
+                break;
+            }
             compare_exchange_cuda<<<grid_size, block_size>>>(d_arr, i, j, d_size);
         }
     }

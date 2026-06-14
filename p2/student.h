@@ -10,6 +10,14 @@
  // Using an invalid data type will results in a 20% gading penalty.
  #define DTYPE int
 
+// --- Tunable parameters for the performance sweep ---
+// BLOCK_DIM: threads per block.
+// TILE: elements processed per block by the shared-memory kernel (power of 2).
+// Each thread handles TILE/BLOCK_DIM elements via grid-stride load/store, so
+// these two knobs can be tuned independently. Rebuild to sweep.
+#define BLOCK_DIM 256
+#define TILE 2048
+
 
 // Add any additional #include headers or helper macros needed
 #include <limits.h>
