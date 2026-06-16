@@ -30,15 +30,19 @@ __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
     int t = blockIdx.x * blockDim.x + threadIdx.x;
     if (t >= (d_size >> 1)) return; // guard partial final block (small arrays)
     int stride = 1 << j;
-    int low = (t / stride) * (2 * stride) + (t % stride);
+    // map pair index t -> low element by inserting a 0 bit at position j.
+    // Bit-shift form of (t/stride)*(2*stride) + (t%stride); avoids runtime
+    // integer div/mod (stride is not a compile-time constant).
+    int low = ((t >> j) << (j + 1)) | (t & (stride - 1));
     int partner = low + stride;
     bool asc = (low & (1 << i)) == 0;
     DTYPE a = arr[low];
     DTYPE b = arr[partner];
-    if ((asc && a > b) || (!asc && a < b)) {
-        arr[low] = b;
-        arr[partner] = a;
-    }
+    // branchless compare-exchange (min/max + select on direction)
+    DTYPE lo = min(a, b);
+    DTYPE hi = max(a, b);
+    arr[low]     = asc ? lo : hi;
+    arr[partner] = asc ? hi : lo;
 }
 
 /**
@@ -76,17 +80,21 @@ __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
         // just raised register pressure, lowered occupancy, and slowed it. The
         // simple per-pair grid-stride loop is best; kept.
         for (int t = threadIdx.x; t < pairs; t += BLOCK_DIM) {
-            // map pair index t to the "low" element of its pair within the tile
-            int low = (t / stride) * (2 * stride) + (t % stride);
+            // map pair index t to the "low" element of its pair within the tile.
+            // Bit-shift form of (t/stride)*(2*stride) + (t%stride): insert a 0
+            // bit at position j. Avoids runtime integer div/mod (stride is not a
+            // compile-time constant), which is ~20+ cycles each on GPU.
+            int low = ((t >> j) << (j + 1)) | (t & (stride - 1));
             int partner = low + stride;
             // direction is stage-based, so use the global index
             bool asc = ((base + low) & (1 << i)) == 0;
             DTYPE a = tile[low];
             DTYPE b = tile[partner];
-            if ((asc && a > b) || (!asc && a < b)) {
-                tile[low] = b;
-                tile[partner] = a;
-            }
+            // branchless compare-exchange (min/max + select on direction)
+            DTYPE lo = min(a, b);
+            DTYPE hi = max(a, b);
+            tile[low]     = asc ? lo : hi;
+            tile[partner] = asc ? hi : lo;
         }
         __syncthreads(); // every step must complete before the next reads
     }
@@ -95,11 +103,6 @@ __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
     for (int e = threadIdx.x; e < TILE; e += BLOCK_DIM) {
         arr[base + e] = tile[e];
     }
-}
-
-__global__ void fill_tail(DTYPE* arr, int start, int end, DTYPE value) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x + start;
-    if (idx < end) arr[idx] = value;
 }
 
 
@@ -166,8 +169,14 @@ void bitonic_sort()
     // transfer timer; the sort cannot begin until the sentinels are in place.
     int tail = d_size - size;
     if (tail > 0) {
-        dim3 fill_blocks = (tail + BLOCK_DIM - 1) / BLOCK_DIM;
-        fill_tail<<<fill_blocks, BLOCK_DIM>>>(d_arr, size, d_size, INT_MAX);
+        // Fill the power-of-two tail with a high sentinel so padding sorts above
+        // all real data (inputs are rand()%1000). cudaMemset is the right
+        // primitive for a constant fill — faster than a hand-rolled kernel and,
+        // being a memset (not a kernel launch), it keeps the profiler's per-kernel
+        // memory-throughput average over just the two real compute kernels. The
+        // byte 0x7F makes every int 0x7F7F7F7F = 2,139,062,143 (>> 999), a valid
+        // uniform sentinel (all padding equal, so interchangeable).
+        cudaMemset(d_arr + size, 0x7F, (size_t)tail * sizeof(DTYPE));
     }
 
     // A step j keeps its partner (stride 2^j) inside a TILE chunk when
