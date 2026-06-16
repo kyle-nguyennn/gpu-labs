@@ -1,4 +1,4 @@
-==PROF== Connected to process 808472 (/home/hice1/dnguyen487/gpu-labs/p2/a.out)
+==PROF== Connected to process 807332 (/home/hice1/dnguyen487/gpu-labs/p2/a.out)
 ==PROF== Profiling "fill_tail(int *, int, int, int)" - 0: 0%....50%....100% - 7 passes
 ==PROF== Profiling "bitonic_shared(int *, int, int)" - 1: 0%....50%....100% - 7 passes
 ==PROF== Profiling "bitonic_shared(int *, int, int)" - 2: 0%....50%....100% - 7 passes
@@ -12,42 +12,42 @@
 ==PROF== Profiling "bitonic_shared(int *, int, int)" - 10: 0%....50%....100% - 7 passes
 ==PROF== Profiling "bitonic_shared(int *, int, int)" - 11: 0%....50%....100% - 7 passes
 ==PROF== Profiling "bitonic_shared(int *, int, int)" - 12: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 13: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 14: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 15: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 13: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 14: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 15: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 16: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 17: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 18: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 17: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 18: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 19: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 20: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 21: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 22: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 21: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 22: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 23: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 24: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 25: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 26: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 27: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 26: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 27: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 28: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 29: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 30: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 31: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 32: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 33: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 32: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 33: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 34: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 35: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 36: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 37: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 38: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 39: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 40: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 39: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 40: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 41: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 42: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 43: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 44: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 45: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 46: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 47: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 48: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 47: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 48: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 49: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 50: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 51: 0%....50%....100% - 7 passes
@@ -55,8 +55,8 @@
 ==PROF== Profiling "compare_exchange_cuda" - 53: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 54: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 55: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 56: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 57: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 56: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 57: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 58: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 59: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 60: 0%....50%....100% - 7 passes
@@ -65,8 +65,8 @@
 ==PROF== Profiling "compare_exchange_cuda" - 63: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 64: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 65: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 66: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 67: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 66: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 67: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 68: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 69: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 70: 0%....50%....100% - 7 passes
@@ -76,8 +76,8 @@
 ==PROF== Profiling "compare_exchange_cuda" - 74: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 75: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 76: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 77: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 78: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 77: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 78: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 79: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 80: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 81: 0%....50%....100% - 7 passes
@@ -88,57 +88,45 @@
 ==PROF== Profiling "compare_exchange_cuda" - 86: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 87: 0%....50%....100% - 7 passes
 ==PROF== Profiling "compare_exchange_cuda" - 88: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 89: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 90: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 91: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 92: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 93: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 94: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 95: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 96: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 97: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 98: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 99: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 100: 0%....50%....100% - 7 passes
-==PROF== Profiling "compare_exchange_cuda" - 101: 0%....50%....100% - 7 passes
-==PROF== Profiling "bitonic_shared(int *, int, int)" - 102: 0%....50%....100% - 7 passes
+==PROF== Profiling "compare_exchange_cuda" - 89: 0%....50%....100% - 7 passes
+==PROF== Profiling "bitonic_shared(int *, int, int)" - 90: 0%....50%....100% - 7 passes
 [1;32mFUNCTIONAL SUCCESS
 [0m[1;34mArray size         :[0m 10000000
-[1;34mCPU Sort Time (ms) :[0m 1472.121948
-[1;34mGPU Sort Time (ms) :[0m 25807.509766
-[1;34mGPU Sort Speed     :[0m 0.387484 million elements per second
+[1;34mCPU Sort Time (ms) :[0m 1478.564941
+[1;34mGPU Sort Time (ms) :[0m 22932.732422
+[1;34mGPU Sort Speed     :[0m 0.436058 million elements per second
 [1;31mPERF FAILING
-[0m[1;34mGPU Sort is [1;31m17x [1;34mslower than CPU, optimize further!
-[1;34mH2D Transfer Time (ms):[0m 857.114746
-[1;34mKernel Time (ms)      :[0m 24931.281250
-[1;34mD2H Transfer Time (ms):[0m 19.113279
-==PROF== Disconnected from process 808472
-[808472] a.out@127.0.0.1
+[0m[1;34mGPU Sort is [1;31m15x [1;34mslower than CPU, optimize further!
+[1;34mH2D Transfer Time (ms):[0m 850.777832
+[1;34mKernel Time (ms)      :[0m 22062.378906
+[1;34mD2H Transfer Time (ms):[0m 19.576576
+==PROF== Disconnected from process 807332
+[807332] a.out@127.0.0.1
   Device 0, CC 9.0
-    bitonic_shared(int *, int, int) (4096, 1, 1)x(256, 1, 1), Invocations 24
+    bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Invocations 24
       Section: Command line profiler metrics
       ---------------------------------------------------------------- ----------- ---------- ---------- ----------
       Metric Name                                                      Metric Unit    Minimum    Maximum    Average
       ---------------------------------------------------------------- ----------- ---------- ---------- ----------
-      gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %      43.94      73.72      51.08
+      gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %      43.10      69.51      49.37
       l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum                        sector 2097152.00 2097152.00 2097152.00
       l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum                         sector       0.00       0.00       0.00
-      sm__warps_active.avg.pct_of_peak_sustained_active                          %      89.59      91.67      90.92
+      sm__warps_active.avg.pct_of_peak_sustained_active                          %      64.80      66.14      65.87
       smsp__thread_inst_executed_per_inst_executed.ratio                                32.00      32.00      32.00
-      smsp__thread_inst_executed_pred_on_per_inst_executed.ratio                        26.64      29.04      27.22
+      smsp__thread_inst_executed_pred_on_per_inst_executed.ratio                        26.53      29.17      27.16
       ---------------------------------------------------------------- ----------- ---------- ---------- ----------
 
-    compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Invocations 78
+    compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Invocations 66
       Section: Command line profiler metrics
       ---------------------------------------------------------------- ----------- ---------- ---------- ----------
       Metric Name                                                      Metric Unit    Minimum    Maximum    Average
       ---------------------------------------------------------------- ----------- ---------- ---------- ----------
-      gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %      43.04      60.11      56.55
+      gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %      43.04      60.21      56.19
       l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum                        sector 2097152.00 2097152.00 2097152.00
       l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum                         sector       0.00       0.00       0.00
-      sm__warps_active.avg.pct_of_peak_sustained_active                          %      48.88      57.17      53.88
+      sm__warps_active.avg.pct_of_peak_sustained_active                          %      50.56      57.67      54.32
       smsp__thread_inst_executed_per_inst_executed.ratio                                31.99      32.00      32.00
-      smsp__thread_inst_executed_pred_on_per_inst_executed.ratio                        28.74      29.17      29.07
+      smsp__thread_inst_executed_pred_on_per_inst_executed.ratio                        28.74      29.16      29.07
       ---------------------------------------------------------------- ----------- ---------- ---------- ----------
 
     fill_tail(int *, int, int, int) (26474, 1, 1)x(256, 1, 1), Invocations 1
@@ -149,7 +137,7 @@
       gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %   34.96   34.96   34.96
       l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum                        sector    0.00    0.00    0.00
       l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum                         sector    0.00    0.00    0.00
-      sm__warps_active.avg.pct_of_peak_sustained_active                          %   17.67   17.67   17.67
+      sm__warps_active.avg.pct_of_peak_sustained_active                          %   17.93   17.93   17.93
       smsp__thread_inst_executed_per_inst_executed.ratio                             32.00   32.00   32.00
       smsp__thread_inst_executed_pred_on_per_inst_executed.ratio                     29.87   29.87   29.87
       ---------------------------------------------------------------- ----------- ------- ------- -------

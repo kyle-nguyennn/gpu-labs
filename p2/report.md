@@ -125,15 +125,10 @@ throughput and meps) but raises shared-memory pressure, which lowers occupancy.
 
 ### 4.1 Methodology
 
-**Test hardware.** A PACE-ICE H100 node could not be secured during the
-evaluation window, so all measurements in this report were taken on a cloud GPU
-instance — **Lambda Cloud, instance type `gpu_1x_h100_pcie`** (a single NVIDIA
-H100 PCIe). This is the PCIe variant of the H100; it has the same Hopper SM
-architecture as the PACE-ICE H100 but lower memory bandwidth (HBM2e, ~2 TB/s vs.
-HBM3 ~3.35 TB/s) and a lower power/clock envelope than the SXM part, and its
-host–device link is PCIe rather than the faster interconnect on SXM nodes.
-Measured throughput and transfer times should therefore be read as a conservative
-lower bound relative to the PACE-ICE grading hardware.
+**Test hardware.** All measurements in this report were taken on a **PACE-ICE
+H100** node (NVIDIA H100 80 GB HBM3, compute capability 9.0) — the same hardware
+used for grading. The build flags match the grading script
+(`nvcc -Xcompiler -rdynamic -lineinfo`).
 
 Correctness is checked across the graded sizes (2K, 10K, 100K, 1M, 10M) via the
 program's `FUNCTIONAL SUCCESS` output. Throughput is measured at 100M elements;
@@ -150,85 +145,108 @@ ncu --metrics gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed \
 ### 4.2 Parameter Sweep
 
 The shared-memory tile size `TILE` was swept across {1024, 2048, 4096, 8192}
-with `BLOCK_DIM = 256`. Throughput was measured at 100M elements (best of three
-runs, per the grading protocol) and the NSight metrics at 10M. Results:
+with `BLOCK_DIM = 256` on the PACE-ICE H100. Throughput was measured at 100M
+elements (best of three runs, per the grading protocol) and the NSight metrics
+at 10M. Results:
 
 | TILE | Shared mem/block | Occupancy @10M | Mem Thpt @10M | Best meps @100M | Kernel time @100M | Grade score |
 |------|------------------|----------------|---------------|-----------------|-------------------|-------------|
-| 1024 | 4 KB  | 59.41% | 46.05% | 281.85 | 106.46 ms | 14.00 |
-| 2048 | 8 KB  | 59.45% | 47.74% | 285.48 | 97.09 ms  | 14.71 |
-| 4096 | 16 KB | 58.20% | 48.39% | 283.87 | 89.58 ms  | 15.39 |
-| 8192 | 32 KB | 49.72% | 47.89% | 162.80 | 85.01 ms  | 15.64 |
+| 1024 | 4 KB  | 56.22% | 45.84% | 465.4 | 80.87 ms | 16.79 |
+| 2048 | 8 KB  | 55.55% | 47.28% | 482.4 | 73.09 ms | 16.89 |
+| 4096 | 16 KB | 54.58% | 47.55% | 494.8 | 67.57 ms | 16.89 |
+| 8192 | 32 KB | 46.40% | 46.86% | 506.2 | 63.95 ms | 16.90 |
 
 ### 4.3 Analysis of the Sweep
 
 **Kernel time** is the cleanest signal and improves monotonically as `TILE`
-grows, from 106.5 ms at 1024 down to 85.0 ms at 8192. This is the expected
-payoff of step fusion: a larger tile absorbs more of each merge's small-stride
-steps into a single shared-memory launch, eliminating global round trips and
-kernel-launch overhead. The marginal gain shrinks at each doubling (≈9, 8, and
-5 ms), showing diminishing returns as the remaining work becomes dominated by
-the unavoidable large-stride global passes.
+grows, from 80.9 ms at 1024 down to 64.0 ms at 8192. This is the expected payoff
+of step fusion: a larger tile absorbs more of each merge's small-stride steps
+into a single shared-memory launch, eliminating global round trips and
+kernel-launch overhead. The marginal gain shrinks at each doubling (≈7.8, 5.5,
+and 3.6 ms), showing diminishing returns as the remaining work becomes dominated
+by the unavoidable large-stride global passes. Every configuration from 2048 up
+clears the 80 ms Option-2 threshold for the full 10/10 kernel-time score.
 
-**Occupancy** holds near 59% through `TILE = 4096` but falls to 49.7% at 8192,
+**meps** rises monotonically with `TILE` in lock-step (465 → 482 → 495 → 506),
+tracking the kernel-time trend because the H100's D2H transfer is stable here
+(~91–93 ms on the best run of each batch), so faster kernels translate directly
+into higher end-to-end throughput. All four configs remain below the 900-meps
+floor required for grade Option 1, so the Option-2 kernel+transfer path sets the
+grade for each.
+
+**Occupancy** holds near 55% through `TILE = 4096` but falls to 46.4% at 8192,
 where 32 KB of shared memory per block limits the number of resident blocks per
-SM. **Memory throughput** peaks at `TILE = 4096` (48.4%) and dips slightly at
-8192, consistent with the occupancy loss reducing the SM's ability to hide
-memory latency even though raw global traffic keeps falling.
+SM — the per-kernel data in Section 5 shows this hits the shared kernel itself,
+whose occupancy drops from ~91% at 4096 to ~66% at 8192. **Memory throughput**
+peaks at `TILE = 4096` (47.6%) and dips slightly at 8192, consistent with the
+occupancy loss reducing the SM's ability to hide memory latency even though raw
+global traffic keeps falling.
 
-**meps is dominated by D2H transfer noise.** The 100M D2H time swings between
-~205 ms and ~460 ms across otherwise-identical runs, and only runs that happened
-to land a fast D2H reached ~282–285 meps. The 8192 configuration never drew a
-fast D2H run in this batch, so its best meps (162.8) reflects transfer-time
-variance, not a kernel regression — its kernel time is in fact the best of all
-four. This transfer variance is server-load dependent and is why the grading
-protocol takes the best of several runs.
+**Configuration choice.** The grade is effectively tied from 2048 up
+(16.89–16.90), so the tie-breaker is the occupancy/throughput profile.
+`TILE = 8192` posts the best kernel time (64.0 ms) and meps (506) but pays an
+8-point occupancy cliff for only a 3.6 ms kernel-time gain. **`TILE = 4096` is
+selected** as the final configuration: it sits at the knee of the curve with the
+highest memory throughput of the sweep (47.6%), retains ~55% aggregate (and ~91%
+shared-kernel) occupancy, and concedes only 3.6 ms of kernel time versus 8192.
+All four configurations passed functional correctness on every graded size.
 
-**Best configuration.** `TILE = 4096` is the best balance: it has the highest
-memory throughput, retains ~58% occupancy, and posts a strong 89.6 ms kernel
-time with a stable ~284 meps. `TILE = 8192` yields a marginally lower kernel
-time but sacrifices occupancy and is more exposed to transfer variance. All four
-configurations passed functional correctness on every graded size.
+### 4.4 Selected Configuration and Observations Relative to Targets
 
-### 4.4 Observations Relative to Targets
+The chosen `TILE = 4096` build, measured at 100M elements (best of three runs)
+on the PACE-ICE H100, posts:
 
-The measurements above were taken on a Lambda Cloud `gpu_1x_h100_pcie` instance
-rather than a PACE-ICE H100 node. Achieved Occupancy (~59%) and Memory
-Throughput (~48%) fall short of the 65% / 75% targets on this hardware. The
-occupancy figure is architecture-driven and should carry over closely to the
-PACE-ICE H100, but the memory-throughput percentage is taken against this part's
-lower HBM2e peak; on the higher-bandwidth SXM H100 the same kernels are expected
-to land closer to the target. The kernel time already maps to a strong Option-2
-score (≈8.9–9.4 of 10), and reducing D2H exposure is the primary remaining lever
-for the transfer-time component — the PCIe host link on this instance also
-inflates the H2D/D2H times relative to an SXM node.
+| Component | Value | Score |
+|-----------|-------|-------|
+| Kernel time @100M | 67.6 ms | 10.0 / 10 |
+| Memory transfer (H2D + D2H) @100M | 134.5 ms | 0.89 / 4 |
+| meps @100M | 494.8 | — (Option 2 used) |
+| Achieved Occupancy @10M | 54.58% | 0 / 1 (target 65%) |
+| Memory Throughput @10M | 47.55% | 0 / 1 (target 75%) |
+| **Total grade** | | **16.89 / 20** |
+
+Kernel time of **67.6 ms** comfortably clears the 80 ms Option-2 ceiling for the
+**full 10/10 kernel-time score**; since the 494.8 meps is below the 900 floor for
+Option 1, the Option-2 kernel+transfer path sets the grade. All graded sizes
+report `FUNCTIONAL SUCCESS`.
+
+Achieved Occupancy (54.6%) and Memory Throughput (47.6%) remain short of the
+65% / 75% thresholds that earn the two extra-credit points. As the Section 5
+breakdown shows, this is not a shared-kernel deficiency — that kernel reaches
+~91% occupancy — but the average of the high-occupancy shared kernel with the
+lower-occupancy global passes and the one-shot padding kernel. Raising the
+headline numbers would require restructuring the global-pass kernel, not faster
+hardware. The combined memory-transfer time of 134.5 ms (≈93 ms of it D2H) yields
+only 0.89 / 4, so reducing D2H transfer is the single largest remaining lever on
+the overall grade of **16.89 / 20**.
 
 ## 5. Profiler Analysis
 
-NSight Compute was run at 10M elements with per-kernel summaries. The aggregate
-figures in the sweep table are the arithmetic mean across the three kernels;
-the per-kernel breakdown below explains what drives them.
+NSight Compute was run at 10M elements on the **PACE-ICE H100** with per-kernel
+summaries for the selected `TILE = 4096` build. The grade-script aggregates
+(54.6% occupancy, 47.6% memory throughput) are the arithmetic mean across the
+three kernels; the per-kernel breakdown below explains what drives them.
 
 **Achieved Occupancy** (`sm__warps_active.avg.pct_of_peak_sustained_active`):
 
 | Kernel | Occupancy | Invocations |
 |--------|-----------|-------------|
-| `bitonic_shared` | 95.14% | 24 |
-| `compare_exchange_cuda` | 58.63% | 91 |
-| `fill_tail` | 24.30% | 1 |
+| `bitonic_shared` | 90.92% | 24 |
+| `compare_exchange_cuda` | 53.88% | 78 |
+| `fill_tail` | 17.67% | 1 |
 
 **Memory Throughput** (`gpu__compute_memory_throughput...`):
 
 | Kernel | Mem Throughput | Invocations |
 |--------|----------------|-------------|
-| `bitonic_shared` | 51.06% | 24 |
-| `compare_exchange_cuda` | 57.59% | 66 |
-| `fill_tail` | 34.89% | 1 |
+| `bitonic_shared` | 51.08% | 24 |
+| `compare_exchange_cuda` | 56.55% | 78 |
+| `fill_tail` | 34.96% | 1 |
 
-The breakdown is the key insight: the **shared-memory kernel itself reaches 95%
-occupancy**, well above the 65% target. The reported aggregate (~59%) is pulled
-down by the global-pass kernel (58.6%) and the one-shot `fill_tail` padding
-kernel (24.3%). Since grading averages across kernels, the global passes — not
+The breakdown is the key insight: the **shared-memory kernel itself reaches ~91%
+occupancy**, well above the 65% target. The reported aggregate (54.6%) is pulled
+down by the global-pass kernel (53.9%) and the one-shot `fill_tail` padding
+kernel (17.7%). Since grading averages across kernels, the global passes — not
 the shared kernel — are what hold the headline occupancy below target.
 
 **Memory access counts**
@@ -239,18 +257,21 @@ the shared kernel — are what hold the headline occupancy below target.
   — exactly one full pass over the padded 16M-element (64 MB) array
   ($16\text{M} \times 4\,\text{B} / 32\,\text{B per sector}$). Both kernels read
   the array once per launch; the shared kernel's advantage is therefore **fewer
-  launches** (24 vs. 66–91), since each shared launch fuses several merge steps
+  launches** (24 vs. 78), since each shared launch fuses several merge steps
   internally, not fewer sectors per launch.
 - **Local-memory loads are 0** for all kernels, confirming no register spilling.
 
 **Divergence**
 (`smsp__thread_inst_executed_per_inst_executed.ratio`): the measured ratio is
 **32.0** (full warp) for *both* compute kernels, i.e. no warp divergence in
-either. The `if (k > p) return` guard in the global kernel is resolved by
-predication rather than a divergent branch, so the shared kernel's
-one-comparator-per-thread mapping matches — not beats — the baseline on this
-metric. The shared kernel's gains come from reduced launches and global traffic,
-not from removing divergence.
+either. The companion predicated-on ratio
+(`smsp__thread_inst_executed_pred_on_per_inst_executed.ratio`) is 27.2 for
+`bitonic_shared` and 29.1 for `compare_exchange_cuda` — ~85–91% of the 32 lanes
+are active per instruction, confirming the `if (k > p) return` comparator guard
+masks only a small minority of lanes through **predication rather than a
+divergent branch**. The shared kernel's one-comparator-per-thread mapping
+therefore matches — not beats — the baseline on divergence; its gains come from
+reduced launches and global traffic, not from removing divergence.
 
 ## 6. Discussion of Optimizations and Effectiveness
 
@@ -258,7 +279,7 @@ not from removing divergence.
 |--------------|-----------|---------------|
 | Device-side padding (`fill_tail`) | avoids host loop and keeps prep on GPU | enables non-power-of-two inputs at negligible cost |
 | One thread per unique comparator | avoids double-processing and races | correctness + halves comparator launches |
-| Shared-memory step fusion | removes per-step global round trips and launches | primary driver: kernel time 106.5 → 85.0 ms as TILE grows |
+| Shared-memory step fusion | removes per-step global round trips and launches | primary driver: kernel time 80.9 → 64.0 ms as TILE grows |
 | Grid-stride load/store | decouples TILE from BLOCK_DIM | enables independent tuning of occupancy vs. traffic |
 | Position-based direction | branch-free, data-independent ordering | uniform control flow, low divergence |
 
@@ -267,14 +288,17 @@ not from removing divergence.
 The two-kernel bitonic design satisfies the functional requirements on every
 graded size and demonstrates a clear optimization path from a launch-bound
 global baseline to a shared-memory implementation that minimizes global traffic
-and kernel launches. Sweeping the tile size confirmed step fusion as the primary
-lever: kernel time fell from 106.5 ms (`TILE = 1024`) to 85.0 ms
-(`TILE = 8192`), with `TILE = 4096` giving the best overall balance of kernel
-time (89.6 ms), occupancy (58%), and memory throughput (48%). Occupancy and
-memory throughput on the test instance (~59% / ~48%) trail the 65% / 75%
-targets; measured on a Lambda Cloud `gpu_1x_h100_pcie` (H100 PCIe) rather than a
-PACE-ICE SXM H100, the memory-throughput and transfer figures in particular are
-expected to improve on the higher-bandwidth grading hardware.
+and kernel launches. Sweeping the tile size on the PACE-ICE H100 confirmed step
+fusion as the primary lever: kernel time fell monotonically from 80.9 ms
+(`TILE = 1024`) to 64.0 ms (`TILE = 8192`), with meps rising in step
+(465 → 506). `TILE = 4096` was selected as the best balance — 67.6 ms kernel time
+(full 10/10 Option-2 score), the highest memory throughput of the sweep, and
+~91% shared-kernel occupancy without the resident-block cliff that drops
+`TILE = 8192` to 46% aggregate occupancy — for an overall grade of
+**16.89 / 20**. Achieved Occupancy (54.6%) and Memory Throughput (47.6%) still
+trail the 65% / 75% extra-credit thresholds; because the shared kernel already
+reaches ~91% occupancy, closing that gap requires restructuring the global-pass
+kernel rather than further tuning.
 
 Promising further optimizations include: (1) **dynamic shared memory** with
 `cudaFuncSetAttribute` to push `TILE` beyond 8192 ints; (2) **vectorized
