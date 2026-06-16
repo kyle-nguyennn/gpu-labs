@@ -56,7 +56,10 @@ __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
  * TILE/BLOCK_DIM elements on load/store and TILE/2/BLOCK_DIM pairs per step.
  */
 __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
-    __shared__ DTYPE tile[TILE];
+    // Dynamic shared memory (extern) so TILE can exceed the 48 KB static cap
+    // (Hopper allows up to ~227 KB per block via cudaFuncSetAttribute, set in
+    // bitonic_sort). Size is passed at launch as TILE*sizeof(DTYPE).
+    extern __shared__ DTYPE tile[];
     int base = blockIdx.x * TILE;
 
     // grid-stride load: bring the block's chunk into shared memory.
@@ -185,6 +188,15 @@ void bitonic_sort()
     // Only use the shared kernel when the array is at least one full tile.
     bool use_shared = (d_size >= TILE);
 
+    // Dynamic shared-memory size for bitonic_shared. Opt in to >48 KB blocks
+    // (Hopper supports up to ~227 KB) when TILE exceeds the static cap.
+    const size_t smem = (size_t)TILE * sizeof(DTYPE);
+    if (use_shared && smem > 48 * 1024) {
+        cudaFuncSetAttribute(bitonic_shared,
+                             cudaFuncAttributeMaxDynamicSharedMemorySize,
+                             (int)smem);
+    }
+
     // stage i: construct sorted subsequence of size 2^i from bitonic sequence of size 2^i
     int num_stages = (int)log2((float)d_size);
     for (int i=1; i<=num_stages; i++) {
@@ -192,7 +204,7 @@ void bitonic_sort()
             if (use_shared && j < log_tile) {
                 // remaining steps (j..0) all fit in a tile: finish them in
                 // a single shared-memory launch, then move to next stage
-                bitonic_shared<<<grid_shared, block_size>>>(d_arr, i, j);
+                bitonic_shared<<<grid_shared, block_size, smem>>>(d_arr, i, j);
                 break;
             }
             compare_exchange_cuda<<<grid_size, block_size>>>(d_arr, i, j, d_size);
