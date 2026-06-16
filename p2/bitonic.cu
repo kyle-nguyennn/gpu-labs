@@ -20,7 +20,7 @@ int d_size;
 // cleanup only unregisters it on success.
 static bool arrCpuPinned = false;
 
-__global__ void compare_exchange_scalar_cuda(DTYPE* arr, int i, int j, int d_size) {
+__global__ void compare_exchange_scalar_cuda(DTYPE* __restrict__ arr, int i, int j, int d_size) {
     // Pair-index threading: one thread per comparator (d_size/2 threads), not
     // one per element. This launches half as many blocks and removes the old
     // `if (k > p) return` half-block waste (for j >= log2(TILE) the global path
@@ -49,7 +49,7 @@ __device__ __forceinline__ uint32_t pack_u16_pair(uint32_t low, uint32_t high) {
     return (high << 16) | low;
 }
 
-__global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
+__global__ void compare_exchange_cuda(DTYPE* __restrict__ arr, int i, int j, int d_size) {
     // Packed uint16 path: for j >= 1, two adjacent low elements and their two
     // adjacent partners are both 32-bit aligned and have the same direction.
     int q = blockIdx.x * blockDim.x + threadIdx.x;
@@ -81,6 +81,51 @@ __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
     *reinterpret_cast<uint32_t*>(arr + partner) = partner_pack;
 }
 
+__device__ __forceinline__ uint64_t pack_u16_quad(uint64_t v0, uint64_t v1, uint64_t v2, uint64_t v3) {
+    return (v3 << 48) | (v2 << 32) | (v1 << 16) | v0;
+}
+
+__global__ void compare_exchange_quad_cuda(DTYPE* __restrict__ arr, int i, int j, int d_size) {
+    // Wider packed path for j >= 2: four adjacent comparators per thread.
+    // The low and partner addresses are 8-byte aligned, and all four elements
+    // share direction because the direction bit is above the stride bit.
+    int q = blockIdx.x * blockDim.x + threadIdx.x;
+    if (q >= (d_size >> 3)) return;
+
+    int t = q << 2;
+    int stride = 1 << j;
+    int low = ((t >> j) << (j + 1)) | (t & (stride - 1));
+    int partner = low + stride;
+
+    uint64_t a_pack = *reinterpret_cast<const uint64_t*>(arr + low);
+    uint64_t b_pack = *reinterpret_cast<const uint64_t*>(arr + partner);
+
+    uint64_t a0 = a_pack & 0xFFFFull;
+    uint64_t a1 = (a_pack >> 16) & 0xFFFFull;
+    uint64_t a2 = (a_pack >> 32) & 0xFFFFull;
+    uint64_t a3 = a_pack >> 48;
+    uint64_t b0 = b_pack & 0xFFFFull;
+    uint64_t b1 = (b_pack >> 16) & 0xFFFFull;
+    uint64_t b2 = (b_pack >> 32) & 0xFFFFull;
+    uint64_t b3 = b_pack >> 48;
+
+    uint64_t lo0 = (a0 < b0) ? a0 : b0;
+    uint64_t hi0 = (a0 < b0) ? b0 : a0;
+    uint64_t lo1 = (a1 < b1) ? a1 : b1;
+    uint64_t hi1 = (a1 < b1) ? b1 : a1;
+    uint64_t lo2 = (a2 < b2) ? a2 : b2;
+    uint64_t hi2 = (a2 < b2) ? b2 : a2;
+    uint64_t lo3 = (a3 < b3) ? a3 : b3;
+    uint64_t hi3 = (a3 < b3) ? b3 : a3;
+
+    bool asc = (low & (1 << i)) == 0;
+    uint64_t low_pack = asc ? pack_u16_quad(lo0, lo1, lo2, lo3) : pack_u16_quad(hi0, hi1, hi2, hi3);
+    uint64_t partner_pack = asc ? pack_u16_quad(hi0, hi1, hi2, hi3) : pack_u16_quad(lo0, lo1, lo2, lo3);
+
+    *reinterpret_cast<uint64_t*>(arr + low) = low_pack;
+    *reinterpret_cast<uint64_t*>(arr + partner) = partner_pack;
+}
+
 /**
  * Shared-memory kernel: each block owns a contiguous TILE-element chunk.
  * It loads the chunk into shared memory once, runs every bitonic step from
@@ -91,7 +136,7 @@ __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
  * Grid-stride loops decouple TILE from BLOCK_DIM: each thread processes
  * TILE/BLOCK_DIM elements on load/store and TILE/2/BLOCK_DIM pairs per step.
  */
-__global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
+__global__ void bitonic_shared(DTYPE* __restrict__ arr, int i, int j_start) {
     __shared__ int tile[TILE];
     int base = blockIdx.x * TILE;
 
@@ -199,6 +244,8 @@ void bitonic_sort()
     dim3 grid_size(((d_size >> 1) + BLOCK_DIM - 1) / BLOCK_DIM);
     // packed global kernel: two adjacent comparators per thread
     dim3 grid_packed(((d_size >> 2) + BLOCK_DIM - 1) / BLOCK_DIM);
+    // wider packed global kernel: four adjacent comparators per thread
+    dim3 grid_quad(((d_size >> 3) + BLOCK_DIM - 1) / BLOCK_DIM);
     // shared kernel: one block per TILE-element chunk
     dim3 grid_shared(d_size / TILE);
 
@@ -233,7 +280,9 @@ void bitonic_sort()
                 bitonic_shared<<<grid_shared, block_size>>>(d_arr, i, j);
                 break;
             }
-            if (j > 0) {
+            if (j > 1) {
+                compare_exchange_quad_cuda<<<grid_quad, block_size>>>(d_arr, i, j, d_size);
+            } else if (j > 0) {
                 compare_exchange_cuda<<<grid_packed, block_size>>>(d_arr, i, j, d_size);
             } else {
                 compare_exchange_scalar_cuda<<<grid_size, block_size>>>(d_arr, i, j, d_size);
