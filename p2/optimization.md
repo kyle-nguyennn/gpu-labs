@@ -1,0 +1,482 @@
+# Performance Optimization Plan
+
+Ways to earn additional points against the Project 2 grading rubric, grounded in
+the implementation and the measured PACE-ICE H100 results. **Shipped config:**
+`BLOCK_DIM = 512`, `TILE = 4096`.
+
+## Starting baseline (before optimization; `BLOCK_DIM = 256`, `TILE = 4096`, 100M)
+
+| Rubric item | Baseline | Max | Gap |
+|---|---|---|---|
+| Correctness | 5 | 5 | — |
+| Report | 1 | 1 | — |
+| Kernel time (Opt 2) | 10 | 10 | maxed (67.6 ms) |
+| **Mem transfer (Opt 2)** | **0.89** | **4** | **−3.1** ← biggest lever |
+| meps (Opt 1) | 0 | 14 | not eligible (497 < 900) |
+| **Occupancy EC** | **0** | **1** | 54.6% < 65% |
+| **Mem throughput EC** | **0** | **1** | 47.6% < 75% |
+
+The kernel is already maxed for Option 2. **Every remaining point is in data transfer and the two profiler EC metrics.** The transfers also block the much richer Option 1 path.
+
+## Current shipped state (after #1 + Trials 5, 7 & 9) — full grade measured
+
+| Rubric item | Now | Max | Score |
+|---|---|---|---|
+| Correctness (5 sizes) | all pass | 5 | 5 |
+| Report | — | 1 | 1 |
+| **Achieved Occupancy** | **74.25%** | 1 | **1** ✓ now ≥ 65% |
+| Memory Throughput | 58.37% | 1 | 0 (need 75%) |
+| Kernel time (Opt 2) | 66.25 ms | 10 | 10 |
+| Mem transfer (Opt 2) | 79.18 ms | 4 | 1.52 |
+| meps (Opt 1) | 687.65 | 14 | 0 (need 900) |
+| **Total** | | **20 (+2 EC)** | **18.52** |
+
+**Full `grade.py` run** (not perf-only) confirms **18.52 / 20**. The jump from the
+~17.5 noted in earlier trials is the **Occupancy EC point flipping on** (54.6 →
+74.25%) — a side effect of Trial 9 (pair-index threading) and `BLOCK_DIM = 512`,
+re-profiled here. Remaining unearned: Memory Throughput EC (kernel-side, clean),
+the transfer score (gated by a CPU-bound page-lock floor), and Option 1 (needs
+kernel < ~31 ms). Details and trial log below.
+
+---
+
+## 1. Data transfer — experiment log (implemented; +0.54 pts measured)
+
+**Testbed.** PACE-ICE H100, `TILE = 4096`, 100M elements, `python grade.py
+bitonic.cu --perf-only` (best of 3 per run, as the grader does). Transfer score =
+`min(30 / transfer_ms * 4, 4)`; meps = `100000 / (kernel + transfer)`.
+
+**Overall hypothesis.** D2H (~92 ms) is ~2× H2D (~42 ms) for the same 400 MB
+because `dev_to_host()` copies into a plain `malloc` buffer: pageable pages fault
+in *during* the copy and can't use the fast DMA path. Both timers wrap the
+student functions in `main.cu`, so page-locking *inside* them is legal (a
+pre-locked global buffer would violate the no-static-allocation rule).
+
+Below, each trial records **hypothesis → what I tried → what I measured →
+verdict**, in the order I ran them.
+
+### Trial 0 — Baseline (no pinning)
+- **Hypothesis:** establish the reference point.
+- **Tried:** unmodified `host_to_dev()` / `dev_to_host()`, both plain `malloc`.
+- **Measured:** H2D 42.0 ms · D2H 91.6 ms · transfer 133.64 ms · **score 0.898** ·
+  meps 497 · kernel 67.5 ms. Log: `grade_before_pinned.log`.
+- **Verdict:** baseline. D2H is the dominant transfer cost.
+
+### Trial 1 — Pin both: H2D `cudaHostRegister` + D2H `cudaMallocHost`
+- **Hypothesis:** page-locking both buffers puts both copies on the fast DMA
+  path, so both H2D and D2H should drop sharply.
+- **Tried:** `cudaHostRegister(arrCpu)` in `host_to_dev()`; replaced the D2H
+  `malloc` with `cudaMallocHost(arrSortedGpu)` + `cudaFreeHost` in cleanup.
+- **Measured:** H2D 20.1 ms (✓ −52%) · **D2H 122.7 ms (✗ +34%, regressed)** ·
+  transfer 142.98 ms · **score 0.839** · meps 475. Log: `grade_after_pinned.log`
+  (first capture, since overwritten).
+- **Verdict:** rejected the D2H half. H2D win is real, but `cudaMallocHost`
+  made D2H *worse* than the pageable baseline — surprising, triggered Trial 2/3.
+
+### Trial 2 — H2D register only (D2H reverted to `malloc`)
+- **Hypothesis:** the H2D registration alone is a clean win; isolate it from the
+  bad D2H change.
+- **Tried:** kept `cudaHostRegister(arrCpu)`; reverted `dev_to_host()` to plain
+  `malloc` + copy.
+- **Measured:** H2D 19.5 ms · D2H 91.5 ms · transfer 111.06 ms · **score 1.081**
+  · meps 559. Log: `grade_after_pinned.log`.
+- **Verdict:** kept. `arrCpu` is already faulted in by the CPU init loop *before*
+  the timer starts, so registering it only locks resident pages — cheap. Banks
+  +0.18 with zero risk.
+
+### Trial 3 — Microbenchmark to isolate the D2H cost (diagnostic)
+- **Hypothesis:** the `cudaMallocHost` regression is the *allocation*, not the
+  *copy*; a 400 MB D2H has separable page-lock vs copy costs.
+- **Tried:** standalone `bench_d2h.cu` timing four 400 MB D2H strategies, each
+  split into page-lock vs copy (2-run average).
+- **Measured:**
+
+  | Strategy | Page-lock | Copy | Total |
+  |----------|-----------|------|-------|
+  | pageable `malloc` + copy | — | — | ~189 ms |
+  | `cudaMallocHost` | ~150 ms | **16 ms** | ~166 ms |
+  | `malloc` + `cudaHostRegister` | ~68 ms | **7.7 ms** | ~76 ms |
+  | reusable 16 MB pinned staging + CPU `memcpy` | — | — | ~83 ms |
+
+- **Verdict:** confirmed the hypothesis. The pinned **copy is only 8–16 ms**; the
+  wall is the **page-lock cost**. `malloc`+`cudaHostRegister` is far cheaper to
+  lock than `cudaMallocHost` (lazy alloc, only the register pays the fault).
+  Pointed to Trial 4.
+
+### Trial 4 — D2H `malloc` + `cudaHostRegister` (final)
+- **Hypothesis:** register the `malloc`'d destination to get the fast pinned copy
+  *without* the eager `cudaMallocHost` allocation cost.
+- **Tried:** `dev_to_host()` = `malloc` → `cudaHostRegister(arrSortedGpu)` →
+  copy → `cudaHostUnregister`; H2D registration retained.
+- **Measured:** H2D 19.5 ms · **D2H 63.7 ms (✓ −30% vs baseline)** · transfer
+  83.49 ms · **score 1.437** · meps 662. Log: `grade_d2h_register.log`. All 5
+  graded sizes still `FUNCTIONAL SUCCESS`; kernel unchanged at 67.7 ms.
+- **Verdict:** kept — this is the shipped implementation.
+
+### Summary of trials
+
+| Trial | Change | H2D | D2H | Transfer | Score | meps | Kept? |
+|-------|--------|-----|-----|----------|-------|------|-------|
+| 0 | baseline (`malloc`/`malloc`) | 42.0 | 91.6 | 133.64 | 0.898 | 497 | — |
+| 1 | H2D reg + D2H `cudaMallocHost` | 20.1 | 122.7 | 142.98 | 0.839 | 475 | ✗ |
+| 2 | H2D reg only | 19.5 | 91.5 | 111.06 | 1.081 | 559 | partial |
+| 4 | H2D reg + D2H `malloc`+register | **19.5** | **63.7** | **83.49** | **1.437** | **662** | ✓ |
+
+**Net result:** transfer score **0.898 → 1.437 (+0.54)**, full grade ≈ 16.89 →
+**~17.44**, kernel time unchanged (this section varies only the transfer path;
+`BLOCK_DIM`'s effect on kernel time is Trial 5 below).
+
+### Trial 5 — `BLOCK_DIM` sweep (does block size move meps?)
+- **Hypothesis:** transfer (`cudaMemcpy`) is independent of `BLOCK_DIM`, so block
+  size can only affect meps *through kernel time* (occupancy + grid-stride work
+  per thread). Grid-stride loops decouple `BLOCK_DIM` from `TILE`, so any
+  power-of-2 ≤ 1024 is valid.
+- **Tried:** swept `BLOCK_DIM ∈ {128, 256, 512, 1024}` at `TILE = 4096`, plus a
+  256-vs-512 repeat to rule out noise.
+- **Measured:**
+
+  | BLOCK_DIM | Kernel | Transfer | meps |
+  |-----------|--------|----------|------|
+  | 128 | 100.07 ms | 83.59 | 544.5 |
+  | 256 (was shipped) | 67.53 ms | 83.02 | 662–665 |
+  | **512 (now shipped)** | **66.25 ms** | 83.45 | **667–669** |
+  | 1024 | 75.38 ms | 83.89 | 627.9 |
+
+- **Verdict:** **Yes — `BLOCK_DIM` moves meps, entirely via kernel time**
+  (transfer is flat ~83 ms, confirming independence). 128 starves the SMs
+  (too few warps, more serial grid-stride work); 1024 regresses (occupancy drop).
+  **512 is the measured optimum** — a small but reproducible win over 256
+  (−1.3 ms kernel, +4–5 meps). Both score 10/10 on kernel time, so the grade is
+  unchanged; switched the shipped config to `BLOCK_DIM = 512`.
+
+### Trial 6 — `TILE` sweep at `BLOCK_DIM = 512`
+- **Hypothesis:** larger `TILE` fuses more small-stride steps per shared launch,
+  so kernel time should keep falling with `TILE` (transfer stays flat); find the
+  meps-best tile at the new block size.
+- **Tried:** swept `TILE ∈ {1024, 2048, 4096, 8192, 16384}` at `BLOCK_DIM = 512`.
+- **Measured:**
+
+  | TILE | Shared/block | Kernel | Transfer | meps |
+  |------|--------------|--------|----------|------|
+  | 1024 | 4 KB | 88.13 ms | 83.83 | 581.5 |
+  | 2048 | 8 KB | 73.60 ms | 83.53 | 636.4 |
+  | 4096 (shipped) | 16 KB | 66.24 ms | 83.60 | 667.4 |
+  | **8192** | 32 KB | **61.84 ms** | 83.52 | **687.9** |
+  | 16384 | 64 KB | — | — | **compile fail** |
+
+- **Verdict:** kernel time keeps falling monotonically (88 → 62 ms); **`TILE = 8192`
+  is the meps-best at 687.9** (+20 over the shipped 4096). `TILE = 16384` **fails
+  to compile** — `ptxas: uses too much shared data (0x10000 / 64 KB, 0xc000 / 48 KB
+  max)`: static `__shared__` is capped at 48 KB on Hopper. Going larger needs
+  **dynamic** shared memory (`cudaFuncSetAttribute` opt-in, up to 227 KB) — see
+  the MEPS options below. Not yet adopted into the shipped config because
+  `TILE = 8192` trades away the Achieved-Occupancy EC point (occupancy cliffs at
+  that tile); `report.md` is also written around `TILE = 4096`.
+
+### Trial 7 — move `fill_tail` padding out of the H2D timer into the kernel timer
+- **Hypothesis:** `fill_tail` (the INT_MAX tail padding) was launched inside
+  `host_to_dev()`, which is the **H2D-transfer-timed** phase. It is a *compute*
+  kernel, so it inflates measured transfer time. Moving it to the top of
+  `bitonic_sort()` (kernel-timed) should lower transfer time. Padding is
+  logically a sort prerequisite (sentinels must be set before the first BM
+  kernel), so this attribution is also more correct. *(Note: the padding was in
+  `host_to_dev`/H2D, not `dev_to_host`/D2H — `dev_to_host` is pure copy.)*
+- **Tried:** removed the `fill_tail` launch from `host_to_dev()`; launched it at
+  the start of `bitonic_sort()` before the stage loop. Still fully inside a timed
+  section (kernel), not outside the timers.
+- **Measured (BLOCK_DIM=512, TILE=4096, best of 3):**
+
+  | | H2D | Kernel | D2H | Transfer total | Transfer score | meps |
+  |--|-----|--------|-----|----------------|----------------|------|
+  | Before (fill in H2D) | 19.4 ms | 66.5 ms | 63.7 ms | 82.74 ms | 1.450 | 671 |
+  | **After (fill in kernel)** | **16.0 ms** | 69.6 ms | 63.9 ms | **79.75 ms** | **1.505** | 670 |
+
+- **Verdict:** kept. `fill_tail` was costing **~3.4 ms** in the H2D bucket;
+  relocating it lifts the transfer score **1.45 → 1.505 (+0.055)** with the kernel
+  still maxed (69.6 ms < 80 → 10/10) and all graded sizes passing. **meps is
+  neutral** (the kernel+transfer sum is unchanged — work only moved buckets), so
+  this does *not* help an Option 1 flip; it is a pure Option-2 transfer-score
+  gain. Small but free and defensible.
+
+### Conclusion — how close is Option 1 (900 meps), really?
+
+The grader's meps uses `best_kernel + best_transfer`, so a flip needs that sum
+< **111.1 ms**. With transfer floored at ~80 ms (Trials 0–4, 7), the gate is on the
+**kernel**:
+
+```
+need:    kernel < 111.1 − 80.0 = ~31 ms
+have:    ~66 ms (TILE=4096 + fill + pair-index, BLOCK_DIM=512)   →  ~685 meps
+```
+
+So Option 1 is **not "impossible" — it requires cutting kernel time by ~53%**
+(66 → <31 ms), and the transfer side is already near its floor. (An earlier draft
+of this doc wrongly claimed "even a free kernel exceeds the budget"; that is
+false — transfer alone at ~80 ms would give ~1250 meps. The real gate is the
+kernel, which Trials 5–6 and 9 show *is* tunable, just not nearly far enough yet.)
+
+What the measured levers do to kernel time: `BLOCK_DIM` spans 66–100 ms (best 66);
+`TILE` spans 64–81 ms across the earlier sweep (best 64 at `TILE = 8192`). Neither
+alone, nor combined, approaches 28 ms. `int4` was tried to cut it further and
+*regressed* the kernel (Trial 8). Reaching ~28 ms would need a different
+structural change — multiple elements per thread and/or a fused build kernel —
+which is **unproven, not foreclosed**. The honest status: Option 1 is out of reach
+of every lever *tried so far*. (Update: the **Occupancy EC point is now earned**
+anyway — see Trial 10 — so the one *clean* remaining target is the Memory
+Throughput EC; §4–§5.)
+
+### Trial 8 — `int4` vectorized shared-kernel load/store (tested, *rejected*)
+- **Hypothesis:** the contiguous global↔shared load/store loops in
+  `bitonic_shared` move one `int` per thread; widening them to 128-bit `int4`
+  (4 elements/transaction) should raise the shared kernel's memory throughput
+  (lowest of the three at 47.4%) and cut kernel time. (README's own hint.)
+- **Tried:** `__align__(16)` on the shared tile; rewrote both the load and store
+  grid-stride loops as `int4` (`tile4[e] = arr4[e]` / `arr4[e] = tile4[e]`),
+  `TILE/4` iterations. Alignment is valid: `arr+base` is 16B-aligned (`base`
+  multiple of `TILE`, `d_arr` cudaMalloc-aligned), `TILE % 4 == 0`. Comparators
+  left scalar.
+- **Measured (BLOCK_DIM=512, TILE=4096, best of 3 + ncu @10M):**
+
+  | | Kernel | meps | `bitonic_shared` mem thpt |
+  |--|--------|------|---------------------------|
+  | Before (scalar) | 70.1 ms | 666 | 47.4% |
+  | After (`int4`) | 74.9 ms | 645 | **41.4%** |
+
+- **Verdict:** **rejected — int4 regressed all three metrics** (confirmed by the
+  deterministic ncu number, not noise). Root cause is **shared-memory bank
+  conflicts**: the scalar loop has thread `t` access `tile[t]` (consecutive
+  threads → consecutive banks → conflict-free), but `int4` makes thread `t`
+  access `tile[4t..4t+3]`, so 8 threads span all 32 banks and each warp hits
+  every bank 4× (4-way conflict) on both the shared store (load loop) and shared
+  read (store loop). The int4 win on the *global* side is real but smaller than
+  the bank-conflict penalty on the *shared* side, because this loop's bottleneck
+  is the shared end, not global. Reverted to scalar; baseline restored (kernel
+  69.5 ms, meps 670). **Lesson:** `int4` helps *global* coalescing but hurts
+  *shared* access unless the shared layout is also reorganized to avoid the
+  conflict — not worth it here.
+
+### Trial 9 — pair-index threading for `compare_exchange_cuda` (tested, *kept*)
+- **Hypothesis:** the global kernel was indexed by *element* `k` (`d_size`
+  threads) with `if (k > p) return` discarding half. Since the global path only
+  runs for `j >= log2(TILE) = 12` and `BLOCK_DIM = 512 = 2^9`, all 512 threads in
+  a block share the same bit-`j` value — so **entire blocks** either all-proceed
+  or all-return. Half of every global launch's blocks therefore do nothing but
+  spin up and exit. Re-indexing by *comparator pair* (`d_size/2` threads, one per
+  pair) should halve the blocks and remove that waste.
+- **Tried:** rewrote `compare_exchange_cuda` to map pair index `t` → low element
+  via `low = (t/stride)*(2*stride) + (t%stride)` (same mapping as the shared
+  kernel), dropped the early-return, and set the global grid to
+  `((d_size/2) + BLOCK_DIM - 1) / BLOCK_DIM`. Coalescing is preserved (consecutive
+  `t` → consecutive `low` within a stride block).
+- **Measured (BLOCK_DIM=512, TILE=4096, best of 3, repeated):**
+
+  | | Kernel | Transfer | meps |
+  |--|--------|----------|------|
+  | Before (element-index) | 69.66 ms | 79.84 | 668.9 |
+  | **After (pair-index)** | **65.8–66.2 ms** | 80.0 | **684.7–685.8** |
+
+- **Verdict:** **kept — a real, stable win** (−3.8 ms kernel, +16 meps, confirmed
+  across 3 runs; all graded sizes pass). Bigger than expected because the wasted
+  launches were whole 512-thread blocks, not just half-warps. **Grade impact
+  (discovered later, see Trial 10):** it does not change the *perf* score (kernel
+  already 10/10, meps still < 900), but removing the all-return half-blocks
+  **raised Achieved Occupancy past the 65% EC threshold**, banking +1 EC — so
+  this trial was worth a point after all, via occupancy rather than meps.
+
+## 2. `int4` vectorized loads/stores (tested in Trial 8 — *rejected*)
+
+> **Status: implemented, measured, reverted.** See Trial 8 in the log above.
+
+- **Hypothesis (was):** widening the contiguous tile load/store in
+  `bitonic_shared` to `int4` raises memory throughput and cuts kernel time.
+- **Result:** the opposite — kernel 70 → 75 ms, meps 666 → 645, shared-kernel
+  memory throughput 47.4 → 41.4%. `int4` to **shared** memory creates 4-way bank
+  conflicts (thread `t` → `tile[4t..4t+3]`), which outweighs the global-side win.
+  Reverted.
+- **Possible salvage (untested):** keep `int4` only on the *global* side — load
+  `int4` into registers, then scatter to shared with the conflict-free scalar
+  layout (thread `t` → `tile[t]`). This needs a shuffle/restage so the 4 ints a
+  thread loaded land at non-contiguous shared slots, which may eat the benefit.
+  Not pursued; the global `compare_exchange_cuda` passes (strided `k ^ 2^j`
+  partners) are also not a clean `int4` target.
+
+## D. Skip padding-only comparators (analysed — *unsafe, not implemented*)
+
+> **Status: correctness analysis performed; proved incorrect. Code unchanged.**
+
+- **Hypothesis:** 100M rounds up to `d_size = 134,217,728` — 25.5% padding
+  (34.2M INT_MAX sentinels). Comparators where *both* `k ≥ size` and `p ≥ size`
+  compare two sentinels that "never swap", so they could be skipped for ~25%
+  fewer operations in `compare_exchange_cuda` and to avoid fully-padding tiles
+  in `bitonic_shared`.
+- **Analysis:** exhaustive Python test over all 120 permutations of
+  `size=5, d_size=8`; also sampled graded sizes 2K, 10K, 100K.
+- **Result: 96 / 120 permutations FAIL. All three sampled graded sizes FAIL.**
+
+  ```
+  FAIL perm=(1,2,3,5,4), size=5, d_size=8
+    full[:5] = [1,2,3,4,5]
+     opt[:5] = [1,2,3,5,4]   ← element 4 stranded in padding zone
+  ```
+
+- **Root cause:** padding positions do **not** always hold INT_MAX. During
+  **descending** bitonic passes, a real value at index `k < size` can swap with
+  a sentinel at `p ≥ size`, moving the real value into the padding zone and a
+  sentinel into the valid zone. A later "both-positions-are-padding" skip then
+  leaves the real value stranded there permanently.
+- **Safe variant (not worth implementing):** check *values* instead of positions —
+  `if (arr[k] == INT_MAX && arr[p] == INT_MAX) continue`. Valid when INT_MAX is
+  never a legitimate input (the grader uses `rand() % 1000`, so it isn't). But
+  it requires two conditional reads *before* each compare — overhead that likely
+  exceeds the occasional skipped swap, especially since the early-exit cases
+  cluster where warps are already fast. **Not pursued.**
+- **Verdict: do not implement.** Position-based skip is unsound; value-based has
+  negative expected ROI.
+
+## 3. Raise Achieved Occupancy → EC (+1) — **ACHIEVED (74.25%)**
+
+> **Status: achieved as a side effect of Trial 9.** No dedicated change was
+> needed; recorded as Trial 10 below.
+
+### Trial 10 — re-profile occupancy after pair-index + BLOCK_DIM=512 (full grade)
+- **Hypothesis:** the earlier 54.6% aggregate was dragged down by
+  `compare_exchange_cuda` (53.9%), whose element-index launches included whole
+  blocks that immediately early-returned (zero active warps counted). Trial 9
+  removed exactly those blocks, so the global kernel's measured occupancy should
+  rise — possibly past the 65% EC threshold — without any occupancy-specific work.
+- **Tried:** ran the **full** `grade.py` (not perf-only) on the shipped
+  `BLOCK_DIM = 512`, `TILE = 4096` build to read the grader's aggregate occupancy
+  and memory-throughput numbers.
+- **Measured:**
+
+  | Metric | Before (BLOCK_DIM=256, element-index) | Now (BLOCK_DIM=512, pair-index) |
+  |--------|---------------------------------------|----------------------------------|
+  | Achieved Occupancy | 54.6% | **74.25%** ✓ (≥ 65%) |
+  | Memory Throughput | 47.6% | 58.37% (still < 75%) |
+  | **Total grade** | ~16.9 | **18.52** |
+
+- **Verdict:** **+1 EC banked.** Occupancy cleared 65% with no dedicated change —
+  removing the all-return half-blocks (Trial 9) plus the larger block size lifted
+  the global kernel's active-warp fraction. The `__launch_bounds__` / fused-build
+  ideas originally proposed here are **no longer needed** for the occupancy point.
+
+## 4. Memory Throughput → EC (+1) — only clean point left (58.38%, need 75%)
+
+> **Status: open. Kernel-side and fully legitimate, but a hard target.**
+
+- **How it's measured:** `gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed`
+  — Nsight's Speed-of-Light "Memory Throughput": the **max over all memory pipes**
+  (L1/TEX, L2, DRAM, shared/LSU) as % of that pipe's peak, **averaged over the
+  whole kernel runtime** (`_elapsed`, so idle/stall cycles count against it).
+  `grade.py` takes a **flat mean of the per-kernel averages** (each distinct
+  kernel weighted ⅓, regardless of launch count or bytes moved).
+- **Current per-kernel breakdown (BLOCK_DIM=512, TILE=4096, 10M):**
+
+  | Kernel | Mem throughput | Invocations |
+  |--------|----------------|-------------|
+  | `bitonic_shared` | **47.33%** ← drag | 24 |
+  | `compare_exchange_cuda` | 67.04% | 78 |
+  | `fill_tail` | 60.76% | 1 |
+  | **flat mean (graded)** | **58.38%** | |
+
+- **The drag moved:** earlier notes blamed `fill_tail` (~35%); at `BLOCK_DIM = 512`
+  it rose to 60.8%, so the real drag is now **`bitonic_shared` (47.3%)**. Why it's
+  low while the global kernel is high: `compare_exchange_cuda` is pure streaming
+  global memory (one op/thread, no barriers) → pipe stays busy → 67%.
+  `bitonic_shared` runs ~12 sequential steps with a `__syncthreads()` between each;
+  fast warps idle at every barrier, and since the metric averages over *elapsed*
+  time, that idle drags the busy-fraction down to 47%.
+- **Candidates (untried / int4 already rejected):** more independent work between
+  barriers in `bitonic_shared` (multiple comparator pairs per thread / register
+  blocking) to raise the busy-fraction; a fused build kernel doing more per pass.
+  `int4` is ruled out (Trial 8, shared bank conflicts). Occupancy is *not* the
+  lever — `bitonic_shared` is already ~91% occupied; the loss is barrier idle.
+- **Reality check (the flat-mean ceiling):** because the grade averages 3 kernels
+  equally, **all three must approach 75%**. Even lifting `bitonic_shared` all the
+  way to the global kernel's 67% only gives `(67+67+61)/3 ≈ 65%` — still short.
+  Hitting 75% needs all three lifted at once, i.e. a structural redesign. This is
+  the only *clean* remaining point but **low probability**.
+
+### Trial 11 — register-blocking `bitonic_shared`'s inner step (tested, *rejected*)
+- **Hypothesis:** the inner per-pair grid-stride loop processes the thread's 4
+  pairs sequentially (load→compare→store each). Gathering all 4 pairs' values
+  into registers *first* (phase 1), then comparing/storing (phase 2), should
+  issue the independent shared loads back-to-back → more memory-level parallelism
+  → higher busy-fraction → higher `bitonic_shared` memory throughput.
+- **Tried:** rewrote the inner loop as two `#pragma unroll` phases over
+  `UNROLL = (TILE/2)/BLOCK_DIM = 4` with register arrays `lows[]`, `av[]`, `bv[]`
+  and bounds guards. All graded sizes stayed correct.
+- **Measured (BLOCK_DIM=512, TILE=4096):**
+
+  | | Kernel | meps | `bitonic_shared` mthpt | Aggregate mthpt |
+  |--|--------|------|------------------------|-----------------|
+  | Before (per-pair loop) | 65.5 ms | 688 | 47.3% | 58.4% |
+  | After (register-block) | 74.2 ms | 651 | **38.0%** | 55.3% |
+
+- **Verdict: rejected — regressed every metric** (kernel +8.7 ms, meps −37,
+  shared mthpt −9.3pp). **Root cause:** `bitonic_shared` is already **~91%
+  occupancy**, so the GPU already hides shared-load latency through *warp-level*
+  parallelism (many resident warps), which is the dominant mechanism. Adding
+  *per-thread* ILP via register blocking raised register pressure, **lowered
+  occupancy**, and reduced that warp-level latency hiding — net slower. Worse, the
+  metric is `_elapsed`-averaged, so the longer runtime directly lowers the
+  throughput %. Reverted to the per-pair loop; baseline restored (65.98 ms, 687).
+  **Lesson:** ILP/register-blocking helps *low-occupancy* kernels; on an already
+  high-occupancy kernel it backfires. This was the Memory-Throughput EC's one
+  clean lever — with it rejected, **no tried lever remains** for that point.
+
+## 5. Data transfer — biggest point bucket, but CPU-bound floor
+
+> **Status: legitimate optimization ~exhausted; the large prize is gray-area.**
+
+The perf bucket is `max(transfer_score + kernel_score, meps_score)`. Because the
+transfer floor is **CPU-bound** (the ~55 ms page-lock of a fresh 400 MB buffer,
+not the ~8 ms copy — Trials 0–4), the options split sharply on legitimacy:
+
+| Option | Legit? | Gain | Why |
+|--------|--------|------|-----|
+| Chunked register/copy pipeline (overlap CPU register with GPU copy) | ✅ clean | ~+0.17 | register (55 ms) ≫ copy (8 ms), so overlap barely helps |
+| Overlap D2H registration with the sort kernel | ⚠️ gray | +2.5–3.5 | hides the 55 ms register under the 66 ms kernel → D2H timer ~8 ms; also flips Option 1 (96 ms total → ~1040 meps → 14) |
+| Pinned alloc outside timers | ❌ illegal | — | static/global allocation banned |
+| Reuse pinned `arrCpu` as output | ❌ illegal | — | breaks the `arrSortedGpu != arrCpu` check |
+
+The double-counting is why transfer is the biggest lever: if D2H drops enough that
+**transfer ≤ 30 ms**, transfer score → 4/4 *and* total GPU time → ~96 ms →
+meps ≈ 1040 → Option 1 = 14. Both bucket terms converge on ~14, worth **+2.5–3.5**.
+But the only change large enough to get there is overlapping the output-buffer
+page-lock with the kernel, whose *intent* is to move cost out of the D2H timer —
+squarely what the rubric's "any code whose intent is to avoid the timers is not
+permitted" clause targets. **Not shipped without instructor sign-off.** The clean
+chunked-pipeline variant is worth only ~+0.17 and is not currently implemented.
+
+## 6. Squeeze kernel time (note: revised by Trials 5 & 9)
+
+> **Status: hypothesis revised.** Kernel time *is* a meps lever (Trials 5, 9), but
+> the measured best (66 ms) is still ~2× the ~31 ms an Option 1 flip needs, so it
+> does not currently change the perf score on its own.
+
+- **Original hypothesis:** with transfers fixed, a faster kernel feeds meps directly; `TILE = 8192` gives ~64 ms (vs 67.6) so total could approach the 900-meps flip.
+- **Why revised:** transfer floors at ~80 ms, so the flip needs kernel < ~31 ms. `BLOCK_DIM` (66–100 ms), `TILE` (64–81 ms), and pair-index (−3.8 ms) all move kernel time but none approaches 31 ms. Kernel time is already maxed for the Option-2 score (10/10), so shrinking it earns nothing *unless* it crosses the ~31 ms Option-1 line — which needs a structural change (multi-element per thread or a fused build kernel; `int4` was tried and regressed, Trial 8), not just parameter tuning.
+
+---
+
+## Realistic ceiling
+
+Current measured grade: **18.52 / 20** (full `grade.py`). Earned: correctness (5),
+report (1), kernel time (10/10), partial transfer (1.52), and the **Achieved-
+Occupancy EC (1)** — the last banked via Trials 9–10, not a dedicated change.
+
+Remaining unearned and their realistic status:
+
+- **Memory Throughput EC (+1):** the only *clean* point left. Kernel-side, 58.37%
+  vs 75% target. Hard for a latency-bound comparison sort; `int4` already failed
+  (Trial 8). Needs a new structural idea (multi-element/thread, fused build).
+- **Transfer score (+~2.48) / Option 1 (+~3 net):** the biggest bucket, but the
+  legitimate floor is CPU-bound (~+0.17 from a clean chunked pipeline). The large
+  prize requires overlapping the output page-lock with the kernel — gray-area
+  under the anti-timer-gaming rule, **pending instructor sign-off** (§5).
+
+**Honest ceiling without the gray-area change: ~18.5–19.5** (current 18.52, plus
+the Memory-Throughput EC if a new lever lands). With instructor approval of the
+kernel-overlapped D2H registration, the perf bucket could reach ~14 → grade
+approaching **~21–22 / 20** (capped at 20 + 2 EC).

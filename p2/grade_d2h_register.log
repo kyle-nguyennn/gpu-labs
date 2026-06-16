@@ -1,0 +1,38 @@
+Compiled! bitonic.cu
+FUNCTIONAL SUCCESS
+Array size         : 100000000
+CPU Sort Time (ms) : 15907.964844
+GPU Sort Time (ms) : 151.688614
+GPU Sort Speed     : 659.245239 million elements per second
+PERF PASSING
+GPU Sort is  104x faster than CPU !!!
+H2D Transfer Time (ms): 20.222080
+Kernel Time (ms)      : 67.763649
+D2H Transfer Time (ms): 63.702881
+
+FUNCTIONAL SUCCESS
+Array size         : 100000000
+CPU Sort Time (ms) : 15801.303711
+GPU Sort Time (ms) : 151.239639
+GPU Sort Speed     : 661.202332 million elements per second
+PERF PASSING
+GPU Sort is  104x faster than CPU !!!
+H2D Transfer Time (ms): 19.492352
+Kernel Time (ms)      : 67.749855
+D2H Transfer Time (ms): 63.997440
+
+FUNCTIONAL SUCCESS
+Array size         : 100000000
+CPU Sort Time (ms) : 16048.610352
+GPU Sort Time (ms) : 152.907578
+GPU Sort Speed     : 653.989807 million elements per second
+PERF PASSING
+GPU Sort is  104x faster than CPU !!!
+H2D Transfer Time (ms): 21.480320
+Kernel Time (ms)      : 67.560928
+D2H Transfer Time (ms): 63.866337
+
+Kernel Time: 67.560928ms, Score: 10
+Memory Transfer Time: 83.489792ms, Score: 1.437
+Million elements per second: 662.029
+Total Score: 16.44 pts

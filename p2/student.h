@@ -15,7 +15,7 @@
 // TILE: elements processed per block by the shared-memory kernel (power of 2).
 // Each thread handles TILE/BLOCK_DIM elements via grid-stride load/store, so
 // these two knobs can be tuned independently. Rebuild to sweep.
-#define BLOCK_DIM 256
+#define BLOCK_DIM 512
 #define TILE 4096
 
 

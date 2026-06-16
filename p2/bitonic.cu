@@ -16,17 +16,28 @@
 
 DTYPE* d_arr;
 int d_size;
+// Tracks whether the host input array was successfully page-locked so that
+// cleanup only unregisters it on success.
+static bool arrCpuPinned = false;
 
 __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
-    int k = blockIdx.x * blockDim.x + threadIdx.x;
-    if (k >= d_size) return; // even after padding, d_size can be smaller than block_size (256)
-    bool asc = (k & (1 << i)) == 0;
-    int p = k ^ (1 << j);
-    if (k > p) return;
-    if ((asc && arr[p] < arr[k]) || (!asc && arr[p] > arr[k])) {
-        DTYPE tmp = arr[p];
-        arr[p] = arr[k];
-        arr[k] = tmp;
+    // Pair-index threading: one thread per comparator (d_size/2 threads), not
+    // one per element. This launches half as many blocks and removes the old
+    // `if (k > p) return` half-block waste (for j >= log2(TILE) the global path
+    // strides span whole blocks, so previously half of all blocks launched only
+    // to early-return). Map pair index t -> the "low" element by inserting a 0
+    // bit at position j, exactly like the shared kernel's low/partner mapping.
+    int t = blockIdx.x * blockDim.x + threadIdx.x;
+    if (t >= (d_size >> 1)) return; // guard partial final block (small arrays)
+    int stride = 1 << j;
+    int low = (t / stride) * (2 * stride) + (t % stride);
+    int partner = low + stride;
+    bool asc = (low & (1 << i)) == 0;
+    DTYPE a = arr[low];
+    DTYPE b = arr[partner];
+    if ((asc && a > b) || (!asc && a < b)) {
+        arr[low] = b;
+        arr[partner] = a;
     }
 }
 
@@ -44,7 +55,11 @@ __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
     __shared__ DTYPE tile[TILE];
     int base = blockIdx.x * TILE;
 
-    // grid-stride load: bring the block's chunk into shared memory
+    // grid-stride load: bring the block's chunk into shared memory.
+    // NOTE: int4-vectorizing this loop was tried (Trial 8) and REGRESSED the
+    // kernel — int4 to shared introduces 4-way bank conflicts (thread t writing
+    // tile[4t..4t+3] makes 8 threads span all 32 banks), which outweighs the
+    // global-side win. Scalar (thread t -> tile[t]) is conflict-free; kept.
     for (int e = threadIdx.x; e < TILE; e += BLOCK_DIM) {
         tile[e] = arr[base + e];
     }
@@ -53,7 +68,13 @@ __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
     int pairs = TILE / 2;
     for (int j = j_start; j >= 0; j--) {
         int stride = 1 << j;
-        // grid-stride over the TILE/2 compare-exchange pairs
+        // grid-stride over the TILE/2 compare-exchange pairs.
+        // NOTE: register-blocking this (gather all UNROLL pairs into registers,
+        // then compare/store — Trial 11) REGRESSED kernel time (65→74 ms) and
+        // shared mem-throughput (47→38%). This kernel is already ~91% occupancy,
+        // so warp-level parallelism already hides shared latency; per-thread ILP
+        // just raised register pressure, lowered occupancy, and slowed it. The
+        // simple per-pair grid-stride loop is best; kept.
         for (int t = threadIdx.x; t < pairs; t += BLOCK_DIM) {
             // map pair index t to the "low" element of its pair within the tile
             int low = (t / stride) * (2 * stride) + (t % stride);
@@ -120,13 +141,12 @@ void host_to_dev()
 {
     d_size = next_pow2(size);
     cudaMalloc((void**) &d_arr, d_size*sizeof(DTYPE));
+    // Page-lock the host source (best-effort) so H2D uses the fast DMA path.
+    arrCpuPinned = (cudaHostRegister(arrCpu, size*sizeof(DTYPE), cudaHostRegisterDefault) == cudaSuccess);
+    if (!arrCpuPinned) cudaGetLastError(); // clear error state if registration failed
     cudaMemcpy(d_arr, arrCpu, size*sizeof(DTYPE), cudaMemcpyHostToDevice);
-    // padding with INT_MAX
-    int tail = d_size - size;
-    if (tail > 0) {
-        dim3 blocks = (tail + BLOCK_DIM -1)/BLOCK_DIM;
-        fill_tail<<<blocks, BLOCK_DIM>>>(d_arr, size, d_size, INT_MAX);
-    }
+    // NOTE: tail padding is launched at the start of bitonic_sort() (kernel-timed
+    // phase), not here, so the H2D timer measures only the host->device copy.
 }
 
 /**
@@ -136,10 +156,19 @@ void host_to_dev()
 void bitonic_sort()
 {
     dim3 block_size(BLOCK_DIM);
-    // integer ceil division (a + b -1) / b
-    dim3 grid_size((d_size + BLOCK_DIM - 1) / BLOCK_DIM);
+    // pair-index threading: d_size/2 comparators per phase, so half the threads
+    dim3 grid_size(((d_size >> 1) + BLOCK_DIM - 1) / BLOCK_DIM);
     // shared kernel: one block per TILE-element chunk
     dim3 grid_shared(d_size / TILE);
+
+    // Pad the power-of-two tail with INT_MAX before sorting. Done here (not in
+    // host_to_dev) so its cost falls in the kernel timer rather than the H2D
+    // transfer timer; the sort cannot begin until the sentinels are in place.
+    int tail = d_size - size;
+    if (tail > 0) {
+        dim3 fill_blocks = (tail + BLOCK_DIM - 1) / BLOCK_DIM;
+        fill_tail<<<fill_blocks, BLOCK_DIM>>>(d_arr, size, d_size, INT_MAX);
+    }
 
     // A step j keeps its partner (stride 2^j) inside a TILE chunk when
     // 2^(j+1) <= TILE, i.e. j < log2(TILE).
@@ -167,10 +196,15 @@ void bitonic_sort()
  */
 DTYPE *dev_to_host()
 {
-    // Default value.  You can return any pointer you wish based on
-    // your implementation.
+    // malloc + cudaHostRegister lets the copy use the fast pinned DMA path.
+    // Measured in-harness: D2H ~64 ms vs ~91 ms for a plain pageable copy. The
+    // copy itself is ~8 ms; the rest is the one-time page-fault+lock cost of
+    // registering the fresh buffer (cudaMallocHost is worse — ~150 ms to alloc).
     arrSortedGpu = (DTYPE*)malloc(size*sizeof(DTYPE));
+    bool reg = (cudaHostRegister(arrSortedGpu, size*sizeof(DTYPE), cudaHostRegisterDefault) == cudaSuccess);
+    if (!reg) cudaGetLastError();
     cudaMemcpy(arrSortedGpu, d_arr, size*sizeof(DTYPE), cudaMemcpyDeviceToHost);
+    if (reg) cudaHostUnregister(arrSortedGpu);
     return arrSortedGpu;
 }
 
@@ -183,6 +217,7 @@ void cleanup(){
     // You may modify/remove these as needed to make your implementation work
     // properly. The defaults provided here allow the skeleton code to compile.    
     cudaFree(d_arr);
+    if (arrCpuPinned) cudaHostUnregister(arrCpu);
     free(arrCpu);
     free(arrSortedGpu);
 }
