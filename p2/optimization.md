@@ -18,31 +18,33 @@ the implementation and the measured PACE-ICE H100 results. **Shipped config:**
 
 The kernel is already maxed for Option 2. **Every remaining point is in data transfer and the two profiler EC metrics.** The transfers also block the much richer Option 1 path.
 
-## Current latest state (after Trial 16: `DTYPE = uint16_t`) — full grade measured
+## Current latest state (after Trial 18: packed `uint4` global path) — full grade measured
 
 | Rubric item | Now | Max | Score |
 |---|---:|---:|---:|
 | Correctness (5 sizes) | all pass | 5 | 5 |
 | Report | — | 1 | 1 |
-| **Achieved Occupancy** | passes ≥65% | 1 | **1** ✓ |
-| **Memory Throughput** | **~63.5%** | 1 | **0** ✗ (< 75%) |
-| Kernel time (Opt 2) | **44.74 ms** | 10 | 10 |
-| Mem transfer (Opt 2) | **40.38 ms** | 4 | **2.97** |
-| **meps (Opt 1)** | **1174.7** | 14 | **14** ✓ |
+| **Achieved Occupancy** | **81.11%** | 1 | **1** ✓ |
+| **Memory Throughput** | **73.28%** | 1 | **0** ✗ (< 75%) |
+| Kernel time (Opt 2) | **38.56 ms** | 10 | 10 |
+| Mem transfer (Opt 2) | **40.44 ms** | 4 | **2.97** |
+| **meps (Opt 1)** | **1265.8** | 14 | **14** ✓ |
 | **Total** | | **20 (+2 EC)** | **21.0** |
 
 **Full `grade.py` run** now confirms **21 / 22**: changing `DTYPE` from `int`
 to `uint16_t` halves the H2D/D2H transfer volume, improves kernel time, and flips
-Performance Option 1 to full credit. This supersedes the earlier 19.49-point
-state. The only remaining missing point is now the **Memory Throughput EC**: after
-`uint16_t`, `bitonic_shared` is healthy (~79.6%), but `compare_exchange_cuda`
-drops to ~47.5%, giving an aggregate around **63.5%** instead of the required
-75%. See Trial 16.
+Performance Option 1 to full credit. Packed global compare-exchange paths then
+recover most of the Memory Throughput EC loss: `uint64_t` packing raises the
+aggregate to **73.01%**, and `uint4` / 128-bit packing nudges it to **73.28%**.
+The only remaining missing point is still the **Memory Throughput EC** (need
+75%). See Trials 16-18.
 
 Progression: ~16.9 (start) → 18.52 (occupancy EC via Trials 9–10) →
 19.51 (memory-throughput EC via Trials 12–13) → 19.49 @ TILE=8192 (Trial 14) →
-**21.0 after `DTYPE=uint16_t` (Trial 16)**. Trial 16 flips Option 1 to full
-credit, but gives back the Memory Throughput EC point. Details and trial log below.
+**21.0 after `DTYPE=uint16_t` (Trial 16)** → **21.0 with 73.01% memory
+throughput after `uint64_t` packing (Trial 17)** → **21.0 with 73.28% after
+`uint4` packing (Trial 18)**. The packed paths recover most of the EC metric but
+do not yet cross 75%. Details and trial log below.
 
 ---
 
@@ -656,12 +658,63 @@ chunked-pipeline variant is worth only ~+0.10 and is not currently implemented.
      back to `uint16_t` before D2H. This preserves the transfer win while making
      the global compare kernels 32-bit again.
 
+### Trial 17 — packed `uint64_t` global compare path (*kept* — near miss)
+- **Hypothesis:** the post-`uint16_t` global compare path does too little memory
+  work per thread to saturate the memory pipes. Grouping four adjacent
+  `uint16_t` comparator pairs into aligned `uint64_t` loads/stores for `j >= 2`
+  should raise `gpu__compute_memory_throughput...` while preserving the transfer
+  win from `DTYPE = uint16_t`.
+- **Tried:** added `compare_exchange_quad_cuda`, using two 64-bit loads and two
+  64-bit stores per thread. Kept the existing `uint32_t` packed path for `j == 1`
+  and scalar fallback for `j == 0`.
+- **Measured (`packed_int64.log`, full `grade.py`):**
+
+  | Metric | Trial 16 (`uint16_t`) | Trial 17 (`uint64_t` packed) |
+  |--------|----------------------:|------------------------------:|
+  | Achieved Occupancy | passes ≥65% | **83.28%** |
+  | Memory Throughput | **~63.5%** | **73.01%** |
+  | Kernel time | **44.74 ms** | **38.41 ms** |
+  | Transfer total | **40.38 ms** | **40.22 ms** |
+  | meps | **1174.7** | **1271.9** |
+  | Total score | **21.0** | **21.0** |
+
+- **Verdict: kept.** This is a strong improvement: correctness still passes, the
+  kernel gets ~6 ms faster, and Memory Throughput jumps by ~9.5 percentage
+  points. It is still a near miss for the EC point: **73.01% < 75%**.
+
+### Trial 18 — packed `uint4` / 128-bit global compare path (*kept for now*)
+- **Hypothesis:** widening the large global phases one notch further should move
+  more bytes per active thread and potentially close the last ~2 percentage
+  points. For `j >= 3`, the low and partner groups are 16-byte aligned, so one
+  thread can process eight adjacent `uint16_t` comparator pairs via `uint4`
+  loads/stores. Keep the `uint64_t` path for `j == 2` and smaller fallbacks for
+  correctness.
+- **Tried:** added `compare_exchange_oct_cuda`, factored the 2x`uint16_t`
+  compare-pack operation into a helper, and dispatched `j > 2` to the new `uint4`
+  kernel.
+- **Measured (`packed_int128.log`, full `grade.py`):**
+
+  | Metric | Trial 17 (`uint64_t`) | Trial 18 (`uint4`) |
+  |--------|-----------------------:|-------------------:|
+  | Achieved Occupancy | **83.28%** | **81.11%** |
+  | Memory Throughput | **73.01%** | **73.28%** |
+  | Kernel time | **38.41 ms** | **38.56 ms** |
+  | Transfer total | **40.22 ms** | **40.44 ms** |
+  | meps | **1271.9** | **1265.8** |
+  | Total score | **21.0** | **21.0** |
+
+- **Verdict: kept for now, but not the breakthrough.** The 128-bit path is
+  correct and produces the best measured Memory Throughput so far, but only by
+  **+0.27 percentage points** over the 64-bit packed path. It also slightly
+  lowers occupancy and slightly regresses kernel/transfer timing. The missing EC
+  point remains open at **73.28% < 75%**.
+
 ## Realistic ceiling
 
 Current measured grade: **21 / 22**. Earned: correctness (5), report (1),
-Performance Option 1 full credit via **1174.7 meps** (14), and the Achieved
+Performance Option 1 full credit via **1265.8 meps** (14), and the Achieved
 Occupancy EC point (1). The only missing point is now the **Memory Throughput EC**
-(need ≥75%; current aggregate after `uint16_t` is ~63.5%).
+(need ≥75%; current best measured aggregate is **73.28%**).
 
 The optimization problem has therefore changed:
 
@@ -670,15 +723,21 @@ The optimization problem has therefore changed:
 - **After Trial 16:** transfer is no longer the limiting bucket. The 16-bit
   representation makes Option 1 full-credit, but it depresses the global kernel's
   Nsight memory-throughput metric.
+- **After Trials 17-18:** packed global paths recover most of the lost memory
+  throughput and improve kernel time, but still stop just short of the 75% EC
+  threshold.
 
 Clean remaining path to the cap:
 
 1. Keep `DTYPE = uint16_t` for H2D/D2H and score-critical meps.
-2. Optimize `compare_exchange_cuda`, since `bitonic_shared` is already above 75%.
-3. First try a packed `uint16_t` global kernel (`uint32_t` loads/stores, two
-   adjacent comparator pairs per thread) because it is the smallest change.
-4. If that fails, try a compact external / 32-bit internal representation:
+2. Keep optimizing the global compare path, since `bitonic_shared` is already
+   above 75%.
+3. The `uint32_t`, `uint64_t`, and `uint4` packed variants have now been tried;
+   the best clean packed result is **73.28%**.
+4. If more work is justified, try a compact external / 32-bit internal
+   representation:
    `uint16_t d_arr -> int d_work -> uint16_t d_arr`.
 
 Honest ceiling without further global-kernel work: **21 / 22**. Plausible ceiling
-with a successful packed or internal-`int` global kernel: **22 / 22**.
+with a successful internal-`int` global path or another structural memory-pipe
+lift: **22 / 22**.
