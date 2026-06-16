@@ -16,7 +16,7 @@
 // Each thread handles TILE/BLOCK_DIM elements via grid-stride load/store, so
 // these two knobs can be tuned independently. Rebuild to sweep.
 #define BLOCK_DIM 256
-#define TILE 2048
+#define TILE 4096
 
 
 // Add any additional #include headers or helper macros needed

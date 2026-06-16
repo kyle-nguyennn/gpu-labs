@@ -1,0 +1,979 @@
+---- ncu --metrics gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed --print-summary per-gpu a.out 10000000 -----
+[10497] a.out@127.0.0.1
+  Device 0, CC 9.0
+    bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Invocations 24
+      Section: Command line profiler metrics
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+      Metric Name                                                      Metric Unit Minimum Maximum Average
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+      gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %   44.53   67.69   51.06
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+
+    compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Invocations 66
+      Section: Command line profiler metrics
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+      Metric Name                                                      Metric Unit Minimum Maximum Average
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+      gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %   44.09   62.44   57.59
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+
+    fill_tail(int *, int, int, int) (26474, 1, 1)x(256, 1, 1), Invocations 1
+      Section: Command line profiler metrics
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+      Metric Name                                                      Metric Unit Minimum Maximum Average
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+      gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed           %   34.89   34.89   34.89
+      ---------------------------------------------------------------- ----------- ------- ------- -------
+
+  Note: The shown averages are calculated as the arithmetic mean of the metric values after the evaluation of the    
+  metrics for each individual kernel launch.                                                                         
+  If aggregating across varying launch configurations (like shared memory, cache config settings), the arithmetic    
+  mean can be misleading and looking at the individual results is recommended instead.     
+
+
+
+---- ncu --metrics sm__warps_active.avg.pct_of_peak_sustained_active --print-summary per-gpu a.out 10000000 ----
+==PROF== Disconnected from process 3387
+[3387] a.out@127.0.0.1
+  Device 0, CC 9.0
+    bitonic_shared(int *, int, int) (8192, 1, 1)x(256, 1, 1), Invocations 24
+      Section: Command line profiler metrics
+      ------------------------------------------------- ----------- ------- ------- -------
+      Metric Name                                       Metric Unit Minimum Maximum Average
+      ------------------------------------------------- ----------- ------- ------- -------
+      sm__warps_active.avg.pct_of_peak_sustained_active           %   93.21   95.51   95.14
+      ------------------------------------------------- ----------- ------- ------- -------
+
+    compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Invocations 91
+      Section: Command line profiler metrics
+      ------------------------------------------------- ----------- ------- ------- -------
+      Metric Name                                       Metric Unit Minimum Maximum Average
+      ------------------------------------------------- ----------- ------- ------- -------
+      sm__warps_active.avg.pct_of_peak_sustained_active           %   53.10   62.04   58.63
+      ------------------------------------------------- ----------- ------- ------- -------
+
+    fill_tail(int *, int, int, int) (26474, 1, 1)x(256, 1, 1), Invocations 1
+      Section: Command line profiler metrics
+      ------------------------------------------------- ----------- ------- ------- -------
+      Metric Name                                       Metric Unit Minimum Maximum Average
+      ------------------------------------------------- ----------- ------- ------- -------
+      sm__warps_active.avg.pct_of_peak_sustained_active           %   24.30   24.30   24.30
+      ------------------------------------------------- ----------- ------- ------- -------
+
+  Note: The shown averages are calculated as the arithmetic mean of the metric values after the evaluation of the    
+  metrics for each individual kernel launch.                                                                         
+  If aggregating across varying launch configurations (like shared memory, cache config settings), the arithmetic    
+  mean can be misleading and looking at the individual results is recommended instead.                               
+
+---ncu --metrics l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum,smsp__thread_inst_executed_per_inst_executed.ratio ./a.out 10000000 ---
+
+[11357] a.out@127.0.0.1
+  fill_tail(int *, int, int, int) (26474, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector            0
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    32.00
+    -------------------------------------------------- ----------- ------------
+
+  compare_exchange_cuda(int *, int, int, int) (65536, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                    31.99
+    -------------------------------------------------- ----------- ------------
+
+  bitonic_shared(int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum          sector      2097152
+    l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum           sector            0
+    smsp__thread_inst_executed_per_inst_executed.ratio                       32
+    -------------------------------------------------- ----------- ------------
