@@ -49,6 +49,22 @@ __device__ __forceinline__ uint32_t pack_u16_pair(uint32_t low, uint32_t high) {
     return (high << 16) | low;
 }
 
+__device__ __forceinline__ void compare_pack_u16_pair(uint32_t a_pack, uint32_t b_pack, bool asc,
+                                                      uint32_t &low_pack, uint32_t &partner_pack) {
+    uint32_t a0 = a_pack & 0xFFFFu;
+    uint32_t a1 = a_pack >> 16;
+    uint32_t b0 = b_pack & 0xFFFFu;
+    uint32_t b1 = b_pack >> 16;
+
+    uint32_t lo0 = (a0 < b0) ? a0 : b0;
+    uint32_t hi0 = (a0 < b0) ? b0 : a0;
+    uint32_t lo1 = (a1 < b1) ? a1 : b1;
+    uint32_t hi1 = (a1 < b1) ? b1 : a1;
+
+    low_pack = asc ? pack_u16_pair(lo0, lo1) : pack_u16_pair(hi0, hi1);
+    partner_pack = asc ? pack_u16_pair(hi0, hi1) : pack_u16_pair(lo0, lo1);
+}
+
 __global__ void compare_exchange_cuda(DTYPE* __restrict__ arr, int i, int j, int d_size) {
     // Packed uint16 path: for j >= 1, two adjacent low elements and their two
     // adjacent partners are both 32-bit aligned and have the same direction.
@@ -63,22 +79,39 @@ __global__ void compare_exchange_cuda(DTYPE* __restrict__ arr, int i, int j, int
     uint32_t a_pack = *reinterpret_cast<const uint32_t*>(arr + low);
     uint32_t b_pack = *reinterpret_cast<const uint32_t*>(arr + partner);
 
-    uint32_t a0 = a_pack & 0xFFFFu;
-    uint32_t a1 = a_pack >> 16;
-    uint32_t b0 = b_pack & 0xFFFFu;
-    uint32_t b1 = b_pack >> 16;
-
-    uint32_t lo0 = (a0 < b0) ? a0 : b0;
-    uint32_t hi0 = (a0 < b0) ? b0 : a0;
-    uint32_t lo1 = (a1 < b1) ? a1 : b1;
-    uint32_t hi1 = (a1 < b1) ? b1 : a1;
-
     bool asc = (low & (1 << i)) == 0;
-    uint32_t low_pack = asc ? pack_u16_pair(lo0, lo1) : pack_u16_pair(hi0, hi1);
-    uint32_t partner_pack = asc ? pack_u16_pair(hi0, hi1) : pack_u16_pair(lo0, lo1);
+    uint32_t low_pack;
+    uint32_t partner_pack;
+    compare_pack_u16_pair(a_pack, b_pack, asc, low_pack, partner_pack);
 
     *reinterpret_cast<uint32_t*>(arr + low) = low_pack;
     *reinterpret_cast<uint32_t*>(arr + partner) = partner_pack;
+}
+
+__global__ void compare_exchange_oct_cuda(DTYPE* __restrict__ arr, int i, int j, int d_size) {
+    // 128-bit packed path for j >= 3: eight adjacent comparator pairs per
+    // thread. The grouped low/partner addresses are 16-byte aligned.
+    int q = blockIdx.x * blockDim.x + threadIdx.x;
+    if (q >= (d_size >> 4)) return;
+
+    int t = q << 3;
+    int stride = 1 << j;
+    int low = ((t >> j) << (j + 1)) | (t & (stride - 1));
+    int partner = low + stride;
+
+    uint4 a_vec = *reinterpret_cast<const uint4*>(arr + low);
+    uint4 b_vec = *reinterpret_cast<const uint4*>(arr + partner);
+    uint4 low_vec;
+    uint4 partner_vec;
+    bool asc = (low & (1 << i)) == 0;
+
+    compare_pack_u16_pair(a_vec.x, b_vec.x, asc, low_vec.x, partner_vec.x);
+    compare_pack_u16_pair(a_vec.y, b_vec.y, asc, low_vec.y, partner_vec.y);
+    compare_pack_u16_pair(a_vec.z, b_vec.z, asc, low_vec.z, partner_vec.z);
+    compare_pack_u16_pair(a_vec.w, b_vec.w, asc, low_vec.w, partner_vec.w);
+
+    *reinterpret_cast<uint4*>(arr + low) = low_vec;
+    *reinterpret_cast<uint4*>(arr + partner) = partner_vec;
 }
 
 __device__ __forceinline__ uint64_t pack_u16_quad(uint64_t v0, uint64_t v1, uint64_t v2, uint64_t v3) {
@@ -246,6 +279,8 @@ void bitonic_sort()
     dim3 grid_packed(((d_size >> 2) + BLOCK_DIM - 1) / BLOCK_DIM);
     // wider packed global kernel: four adjacent comparators per thread
     dim3 grid_quad(((d_size >> 3) + BLOCK_DIM - 1) / BLOCK_DIM);
+    // widest packed global kernel: eight adjacent comparators per thread
+    dim3 grid_oct(((d_size >> 4) + BLOCK_DIM - 1) / BLOCK_DIM);
     // shared kernel: one block per TILE-element chunk
     dim3 grid_shared(d_size / TILE);
 
@@ -280,7 +315,9 @@ void bitonic_sort()
                 bitonic_shared<<<grid_shared, block_size>>>(d_arr, i, j);
                 break;
             }
-            if (j > 1) {
+            if (j > 2) {
+                compare_exchange_oct_cuda<<<grid_oct, block_size>>>(d_arr, i, j, d_size);
+            } else if (j > 1) {
                 compare_exchange_quad_cuda<<<grid_quad, block_size>>>(d_arr, i, j, d_size);
             } else if (j > 0) {
                 compare_exchange_cuda<<<grid_packed, block_size>>>(d_arr, i, j, d_size);
