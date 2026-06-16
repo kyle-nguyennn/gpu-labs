@@ -109,17 +109,9 @@ __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
     for (int j = j_start; j >= 0; j--) {
         int stride = 1 << j;
         // grid-stride over the TILE/2 compare-exchange pairs.
-        // NOTE: register-blocking this (gather all UNROLL pairs into registers,
-        // then compare/store — Trial 11) REGRESSED kernel time (65→74 ms) and
-        // shared mem-throughput (47→38%). This kernel is already ~91% occupancy,
-        // so warp-level parallelism already hides shared latency; per-thread ILP
-        // just raised register pressure, lowered occupancy, and slowed it. The
-        // simple per-pair grid-stride loop is best; kept.
         for (int t = threadIdx.x; t < pairs; t += BLOCK_DIM) {
             // map pair index t to the "low" element of its pair within the tile.
-            // Bit-shift form of (t/stride)*(2*stride) + (t%stride): insert a 0
-            // bit at position j. Avoids runtime integer div/mod (stride is not a
-            // compile-time constant), which is ~20+ cycles each on GPU.
+            // Bit-shift form of (t/stride)*(2*stride) + (t%stride): insert a 0 bit at position j.
             int low = ((t >> j) << (j + 1)) | (t & (stride - 1));
             int partner = low + stride;
             // direction is stage-based, so use the global index
@@ -184,8 +176,6 @@ void host_to_dev()
     arrCpuPinned = (cudaHostRegister(arrCpu, size*sizeof(DTYPE), cudaHostRegisterDefault) == cudaSuccess);
     if (!arrCpuPinned) cudaGetLastError(); // clear error state if registration failed
     cudaMemcpy(d_arr, arrCpu, size*sizeof(DTYPE), cudaMemcpyHostToDevice);
-    // NOTE: tail padding is launched at the start of bitonic_sort() (kernel-timed
-    // phase), not here, so the H2D timer measures only the host->device copy.
 }
 
 /**
@@ -202,18 +192,9 @@ void bitonic_sort()
     // shared kernel: one block per TILE-element chunk
     dim3 grid_shared(d_size / TILE);
 
-    // Pad the power-of-two tail with INT_MAX before sorting. Done here (not in
-    // host_to_dev) so its cost falls in the kernel timer rather than the H2D
-    // transfer timer; the sort cannot begin until the sentinels are in place.
+    // Pad the power-of-two tail
     int tail = d_size - size;
     if (tail > 0) {
-        // Fill the power-of-two tail with a high sentinel so padding sorts above
-        // all real data (inputs are rand()%1000). cudaMemset is the right
-        // primitive for a constant fill — faster than a hand-rolled kernel and,
-        // being a memset (not a kernel launch), it keeps the profiler's per-kernel
-        // memory-throughput average over just the two real compute kernels. The
-        // byte 0xFF and uint16_t makes every int 0xFFFF = 65536 (> 999), a valid
-        // uniform sentinel (all padding equal, so interchangeable).
         cudaMemset(d_arr + size, 0xFF, (size_t)tail * sizeof(DTYPE));
     }
 
@@ -247,10 +228,6 @@ void bitonic_sort()
  */
 DTYPE *dev_to_host()
 {
-    // malloc + cudaHostRegister lets the copy use the fast pinned DMA path.
-    // Measured in-harness: D2H ~64 ms vs ~91 ms for a plain pageable copy. The
-    // copy itself is ~8 ms; the rest is the one-time page-fault+lock cost of
-    // registering the fresh buffer (cudaMallocHost is worse — ~150 ms to alloc).
     arrSortedGpu = (DTYPE*)malloc(size*sizeof(DTYPE));
     bool reg = (cudaHostRegister(arrSortedGpu, size*sizeof(DTYPE), cudaHostRegisterDefault) == cudaSuccess);
     if (!reg) cudaGetLastError();

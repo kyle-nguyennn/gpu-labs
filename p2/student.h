@@ -13,8 +13,6 @@
 // --- Tunable parameters for the performance sweep ---
 // BLOCK_DIM: threads per block.
 // TILE: elements processed per block by the shared-memory kernel (power of 2).
-// Each thread handles TILE/BLOCK_DIM elements via grid-stride load/store, so
-// these two knobs can be tuned independently. Rebuild to sweep.
 #define BLOCK_DIM 512
 #define TILE 8192 // number of elements (now havled in size, so can x2 TILE)
 
