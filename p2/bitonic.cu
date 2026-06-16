@@ -56,7 +56,7 @@ __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
  * TILE/BLOCK_DIM elements on load/store and TILE/2/BLOCK_DIM pairs per step.
  */
 __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
-    __shared__ DTYPE tile[TILE];
+    __shared__ int tile[TILE];
     int base = blockIdx.x * TILE;
 
     // grid-stride load: bring the block's chunk into shared memory.
@@ -65,7 +65,7 @@ __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
     // tile[4t..4t+3] makes 8 threads span all 32 banks), which outweighs the
     // global-side win. Scalar (thread t -> tile[t]) is conflict-free; kept.
     for (int e = threadIdx.x; e < TILE; e += BLOCK_DIM) {
-        tile[e] = arr[base + e];
+        tile[e] = (int)arr[base + e];
     }
     __syncthreads();
 
@@ -101,7 +101,7 @@ __global__ void bitonic_shared(DTYPE* arr, int i, int j_start) {
 
     // grid-stride store: write the sorted chunk back to global memory
     for (int e = threadIdx.x; e < TILE; e += BLOCK_DIM) {
-        arr[base + e] = tile[e];
+        arr[base + e] = (DTYPE)tile[e];
     }
 }
 
