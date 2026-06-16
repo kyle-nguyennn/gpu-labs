@@ -174,9 +174,9 @@ void bitonic_sort()
         // primitive for a constant fill — faster than a hand-rolled kernel and,
         // being a memset (not a kernel launch), it keeps the profiler's per-kernel
         // memory-throughput average over just the two real compute kernels. The
-        // byte 0x7F makes every int 0x7F7F7F7F = 2,139,062,143 (>> 999), a valid
+        // byte 0xFF and uint16_t makes every int 0xFFFF = 65536 (> 999), a valid
         // uniform sentinel (all padding equal, so interchangeable).
-        cudaMemset(d_arr + size, 0x7F, (size_t)tail * sizeof(DTYPE));
+        cudaMemset(d_arr + size, 0xFF, (size_t)tail * sizeof(DTYPE));
     }
 
     // A step j keeps its partner (stride 2^j) inside a TILE chunk when
