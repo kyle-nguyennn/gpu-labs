@@ -2,7 +2,7 @@
 
 Ways to earn additional points against the Project 2 grading rubric, grounded in
 the implementation and the measured PACE-ICE H100 results. **Shipped config:**
-`BLOCK_DIM = 512`, `TILE = 8192`.
+`DTYPE = uint16_t`, `BLOCK_DIM = 512`, `TILE = 8192`.
 
 ## Starting baseline (before optimization; `BLOCK_DIM = 256`, `TILE = 4096`, 100M)
 
@@ -18,26 +18,31 @@ the implementation and the measured PACE-ICE H100 results. **Shipped config:**
 
 The kernel is already maxed for Option 2. **Every remaining point is in data transfer and the two profiler EC metrics.** The transfers also block the much richer Option 1 path.
 
-## Current shipped state (after #1 + Trials 5, 7, 9, 12–14) — full grade measured
+## Current latest state (after Trial 16: `DTYPE = uint16_t`) — full grade measured
 
 | Rubric item | Now | Max | Score |
-|---|---|---|---|
+|---|---:|---:|---:|
 | Correctness (5 sizes) | all pass | 5 | 5 |
 | Report | — | 1 | 1 |
-| **Achieved Occupancy** | **80.69%** | 1 | **1** ✓ ≥ 65% |
-| **Memory Throughput** | **75.25%** | 1 | **1** ✓ ≥ 75% |
-| Kernel time (Opt 2) | 60.6 ms | 10 | 10 |
-| Mem transfer (Opt 2) | 80.3 ms | 4 | 1.49 |
-| meps (Opt 1) | 710 | 14 | 0 (need 900) |
-| **Total** | | **20 (+2 EC)** | **19.49** |
+| **Achieved Occupancy** | passes ≥65% | 1 | **1** ✓ |
+| **Memory Throughput** | **~63.5%** | 1 | **0** ✗ (< 75%) |
+| Kernel time (Opt 2) | **44.74 ms** | 10 | 10 |
+| Mem transfer (Opt 2) | **40.38 ms** | 4 | **2.97** |
+| **meps (Opt 1)** | **1174.7** | 14 | **14** ✓ |
+| **Total** | | **20 (+2 EC)** | **21.0** |
 
-**Full `grade.py` run** (not perf-only) confirms **19.49 / 20** — **both EC points
-earned**. Progression: ~16.9 (start) → 18.52 (occupancy EC via Trials 9–10) →
-19.51 (memory-throughput EC via Trials 12–13) → **19.49 @ TILE=8192** (Trial 14:
-faster kernel, same grade, more headroom). The only remaining unearned point is
-the Option 1 / transfer perf bucket, which is **proven unreachable by legitimate
-means** — the D2H page-lock floors at ~54 ms (Trial 15), so kernel + transfer
-cannot drop under the 111 ms that 900 meps requires. Details and trial log below.
+**Full `grade.py` run** now confirms **21 / 22**: changing `DTYPE` from `int`
+to `uint16_t` halves the H2D/D2H transfer volume, improves kernel time, and flips
+Performance Option 1 to full credit. This supersedes the earlier 19.49-point
+state. The only remaining missing point is now the **Memory Throughput EC**: after
+`uint16_t`, `bitonic_shared` is healthy (~79.6%), but `compare_exchange_cuda`
+drops to ~47.5%, giving an aggregate around **63.5%** instead of the required
+75%. See Trial 16.
+
+Progression: ~16.9 (start) → 18.52 (occupancy EC via Trials 9–10) →
+19.51 (memory-throughput EC via Trials 12–13) → 19.49 @ TILE=8192 (Trial 14) →
+**21.0 after `DTYPE=uint16_t` (Trial 16)**. Trial 16 flips Option 1 to full
+credit, but gives back the Memory Throughput EC point. Details and trial log below.
 
 ---
 
@@ -202,6 +207,10 @@ verdict**, in the order I ran them.
   gain. Small but free and defensible.
 
 ### Conclusion — how close is Option 1 (900 meps), really?
+
+> **Superseded by Trial 16.** The analysis below was correct for `DTYPE=int`, but
+> changing `DTYPE` to `uint16_t` cuts transfer enough to flip Option 1 to full
+> credit: 1174.7 meps. Kept for historical context.
 
 The grader's meps uses `best_kernel + best_transfer`, so a flip needs that sum
 < **111.1 ms**. With transfer floored at ~80 ms (Trials 0–4, 7), the gate is on the
@@ -554,6 +563,10 @@ Throughput EC; §4–§5.)
 
 ## 5. Data transfer — biggest point bucket, but CPU-bound floor
 
+> **Superseded by Trial 16.** The page-lock floor analysis remains true for a
+> 400 MB `int` transfer, but `DTYPE=uint16_t` changes the problem size to ~200 MB
+> and makes Option 1 reachable without gray-area timer overlap.
+
 > **Status: legitimate optimization exhausted (measured, Trial 15); the large
 > prize is gray-area.**
 
@@ -579,6 +592,10 @@ chunked-pipeline variant is worth only ~+0.10 and is not currently implemented.
 
 ## 6. Squeeze kernel time (note: revised by Trials 5, 9 & 14)
 
+> **Superseded by Trial 16 for scoring.** The numbers in this section describe the
+> prior `DTYPE=int` state. After `DTYPE=uint16_t`, kernel time is ~44.7 ms and
+> Option 1 is already full-credit; the remaining target is memory-throughput EC.
+
 > **Status: hypothesis revised.** Kernel time *is* a meps lever (Trials 5, 9, 14),
 > and `TILE = 8192` is now shipped at **60.6 ms** — but that is still ~2× the
 > ~31 ms an Option 1 flip needs, so it does not change the perf score.
@@ -589,27 +606,79 @@ chunked-pipeline variant is worth only ~+0.10 and is not currently implemented.
 
 ---
 
+
+### Trial 16 — change `DTYPE` from `int` to `uint16_t` (*kept* — flips Option 1)
+- **Hypothesis:** `main.cu` generates input values with `rand() % 1000`, and
+  `student.h` explicitly allows changing `DTYPE` as long as it can contain the
+  largest generated value. `uint16_t` is therefore valid for real input values.
+  Switching from 32-bit to 16-bit elements should cut H2D/D2H transfer volume in
+  half and may also reduce global-memory traffic in the sort. The padding
+  sentinel can be produced with `cudaMemset(..., 0xFF, tail*sizeof(DTYPE))`, which
+  gives `0xFFFF = 65535`, still safely above the max real value 999.
+- **Tried:** changed `#define DTYPE int` → `#define DTYPE uint16_t`; kept
+  `BLOCK_DIM = 512`, `TILE = 8192`; kept the shared-memory tile as `int` instead
+  of `uint16_t` to avoid the 16-bit shared-memory/instruction behavior observed
+  during profiling; kept branchless min/max compare-exchange and `cudaMemset`
+  tail fill.
+- **Measured (100M, full `grade.py`, best run shown by the grader):**
+
+  | Metric | Before (`int`, TILE=8192) | After (`uint16_t`, int shared tile) |
+  |--------|---------------------------:|------------------------------------:|
+  | H2D transfer | ~16 ms | **8.25–8.30 ms** |
+  | Kernel time | ~60.6 ms | **44.74 ms** |
+  | D2H transfer | ~64 ms | **32.13–32.31 ms** |
+  | Transfer total | ~80.3 ms | **40.38 ms** |
+  | meps | ~710 | **1174.7** |
+  | Performance option | Option 2 | **Option 1, full 14/14** |
+  | Total score | ~19.49 | **21.0** |
+
+- **Profiler follow-up (10M, memory throughput):** the shared kernel is no longer
+  the problem, but the global kernel becomes the drag:
+
+  | Kernel | Invocations | Memory throughput |
+  |--------|-------------|------------------:|
+  | `bitonic_shared(unsigned short*, int, int)` | 24 | **79.56%** |
+  | `compare_exchange_cuda(unsigned short*, int, int, int)` | 66 | **47.48%** |
+  | Aggregate mean | — | **~63.5%** |
+
+- **Verdict:** **kept.** This is the biggest clean improvement so far: transfer
+  time is roughly halved, kernel time also drops, and meps crosses the 1000-MEPS
+  full-credit threshold by a wide margin. The trade-off is that the Memory
+  Throughput EC point is lost: the 16-bit global compare-exchange kernel moves
+  fewer bytes per comparator and becomes less able to saturate the memory pipes,
+  even though wall-clock performance improves.
+- **Next target:** recover the final EC point by fixing the global kernel, not
+  the shared kernel. Candidate paths:
+  1. **Packed `uint16_t` global compare kernel**: one thread handles two adjacent
+     comparator pairs via aligned `uint32_t` loads/stores when `j >= 1`.
+  2. **Internal `int` work buffer**: keep host/device transfer type as
+     `uint16_t`, unpack to an internal `int* d_work`, sort on `int`, then pack
+     back to `uint16_t` before D2H. This preserves the transfer win while making
+     the global compare kernels 32-bit again.
+
 ## Realistic ceiling
 
-Current measured grade: **19.49 / 20** (full `grade.py`, `TILE = 8192`). Earned:
-correctness (5), report (1), kernel time (10/10), partial transfer (1.49), and
-**both EC points** — Achieved Occupancy (Trials 9–10) and Memory Throughput
-(Trials 12–13). Kernel time improved to 60.6 ms (Trial 14) for headroom, though
-it does not change the score.
+Current measured grade: **21 / 22**. Earned: correctness (5), report (1),
+Performance Option 1 full credit via **1174.7 meps** (14), and the Achieved
+Occupancy EC point (1). The only missing point is now the **Memory Throughput EC**
+(need ≥75%; current aggregate after `uint16_t` is ~63.5%).
 
-Only remaining unearned point:
+The optimization problem has therefore changed:
 
-- **Transfer score (+~2.5) / Option 1 (+~3 net):** the biggest bucket, but
-  **Trial 15 measured the D2H floor at ~54 ms (page-lock)** — proving the
-  legitimate optimization is essentially exhausted (~+0.10 from a clean chunked
-  pipeline). The large prize requires overlapping the output page-lock with the
-  kernel — gray-area under the anti-timer-gaming rule, **pending instructor
-  sign-off** (§5). Option 1 is **measurably unreachable** otherwise: kernel
-  (60 ms) + transfer floor (~70–80 ms) ≈ 130–140 ms ≫ the 111 ms cap.
+- **Before Trial 16:** transfer time was the limiting bucket, and Option 1 looked
+  unreachable under the 400 MB `int` D2H page-lock floor.
+- **After Trial 16:** transfer is no longer the limiting bucket. The 16-bit
+  representation makes Option 1 full-credit, but it depresses the global kernel's
+  Nsight memory-throughput metric.
 
-**Honest ceiling without the gray-area change: ~19.5** (current), since both EC
-points are now banked and the kernel/transfer scores are at their measured
-legitimate floors. With instructor approval of the kernel-overlapped D2H
-registration, the
-perf bucket could reach ~14 → grade approaching the **20 + 2 EC** cap. The clean,
-shippable recommendation is to **bank 19.49**.
+Clean remaining path to the cap:
+
+1. Keep `DTYPE = uint16_t` for H2D/D2H and score-critical meps.
+2. Optimize `compare_exchange_cuda`, since `bitonic_shared` is already above 75%.
+3. First try a packed `uint16_t` global kernel (`uint32_t` loads/stores, two
+   adjacent comparator pairs per thread) because it is the smallest change.
+4. If that fails, try a compact external / 32-bit internal representation:
+   `uint16_t d_arr -> int d_work -> uint16_t d_arr`.
+
+Honest ceiling without further global-kernel work: **21 / 22**. Plausible ceiling
+with a successful packed or internal-`int` global kernel: **22 / 22**.

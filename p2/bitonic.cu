@@ -20,7 +20,7 @@ int d_size;
 // cleanup only unregisters it on success.
 static bool arrCpuPinned = false;
 
-__global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
+__global__ void compare_exchange_scalar_cuda(DTYPE* arr, int i, int j, int d_size) {
     // Pair-index threading: one thread per comparator (d_size/2 threads), not
     // one per element. This launches half as many blocks and removes the old
     // `if (k > p) return` half-block waste (for j >= log2(TILE) the global path
@@ -43,6 +43,42 @@ __global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
     DTYPE hi = max(a, b);
     arr[low]     = asc ? lo : hi;
     arr[partner] = asc ? hi : lo;
+}
+
+__device__ __forceinline__ uint32_t pack_u16_pair(uint32_t low, uint32_t high) {
+    return (high << 16) | low;
+}
+
+__global__ void compare_exchange_cuda(DTYPE* arr, int i, int j, int d_size) {
+    // Packed uint16 path: for j >= 1, two adjacent low elements and their two
+    // adjacent partners are both 32-bit aligned and have the same direction.
+    int q = blockIdx.x * blockDim.x + threadIdx.x;
+    if (q >= (d_size >> 2)) return;
+
+    int t = q << 1;
+    int stride = 1 << j;
+    int low = ((t >> j) << (j + 1)) | (t & (stride - 1));
+    int partner = low + stride;
+
+    uint32_t a_pack = *reinterpret_cast<const uint32_t*>(arr + low);
+    uint32_t b_pack = *reinterpret_cast<const uint32_t*>(arr + partner);
+
+    uint32_t a0 = a_pack & 0xFFFFu;
+    uint32_t a1 = a_pack >> 16;
+    uint32_t b0 = b_pack & 0xFFFFu;
+    uint32_t b1 = b_pack >> 16;
+
+    uint32_t lo0 = (a0 < b0) ? a0 : b0;
+    uint32_t hi0 = (a0 < b0) ? b0 : a0;
+    uint32_t lo1 = (a1 < b1) ? a1 : b1;
+    uint32_t hi1 = (a1 < b1) ? b1 : a1;
+
+    bool asc = (low & (1 << i)) == 0;
+    uint32_t low_pack = asc ? pack_u16_pair(lo0, lo1) : pack_u16_pair(hi0, hi1);
+    uint32_t partner_pack = asc ? pack_u16_pair(hi0, hi1) : pack_u16_pair(lo0, lo1);
+
+    *reinterpret_cast<uint32_t*>(arr + low) = low_pack;
+    *reinterpret_cast<uint32_t*>(arr + partner) = partner_pack;
 }
 
 /**
@@ -161,6 +197,8 @@ void bitonic_sort()
     dim3 block_size(BLOCK_DIM);
     // pair-index threading: d_size/2 comparators per phase, so half the threads
     dim3 grid_size(((d_size >> 1) + BLOCK_DIM - 1) / BLOCK_DIM);
+    // packed global kernel: two adjacent comparators per thread
+    dim3 grid_packed(((d_size >> 2) + BLOCK_DIM - 1) / BLOCK_DIM);
     // shared kernel: one block per TILE-element chunk
     dim3 grid_shared(d_size / TILE);
 
@@ -195,7 +233,11 @@ void bitonic_sort()
                 bitonic_shared<<<grid_shared, block_size>>>(d_arr, i, j);
                 break;
             }
-            compare_exchange_cuda<<<grid_size, block_size>>>(d_arr, i, j, d_size);
+            if (j > 0) {
+                compare_exchange_cuda<<<grid_packed, block_size>>>(d_arr, i, j, d_size);
+            } else {
+                compare_exchange_scalar_cuda<<<grid_size, block_size>>>(d_arr, i, j, d_size);
+            }
         }
     }
 }
