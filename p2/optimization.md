@@ -2,7 +2,7 @@
 
 Ways to earn additional points against the Project 2 grading rubric, grounded in
 the implementation and the measured PACE-ICE H100 results. **Shipped config:**
-`BLOCK_DIM = 512`, `TILE = 4096`.
+`BLOCK_DIM = 512`, `TILE = 8192`.
 
 ## Starting baseline (before optimization; `BLOCK_DIM = 256`, `TILE = 4096`, 100M)
 
@@ -18,25 +18,26 @@ the implementation and the measured PACE-ICE H100 results. **Shipped config:**
 
 The kernel is already maxed for Option 2. **Every remaining point is in data transfer and the two profiler EC metrics.** The transfers also block the much richer Option 1 path.
 
-## Current shipped state (after #1 + Trials 5, 7 & 9) — full grade measured
+## Current shipped state (after #1 + Trials 5, 7, 9, 12–14) — full grade measured
 
 | Rubric item | Now | Max | Score |
 |---|---|---|---|
 | Correctness (5 sizes) | all pass | 5 | 5 |
 | Report | — | 1 | 1 |
-| **Achieved Occupancy** | **82.05%** | 1 | **1** ✓ ≥ 65% |
-| **Memory Throughput** | **75.73%** | 1 | **1** ✓ ≥ 75% |
-| Kernel time (Opt 2) | 66.5 ms | 10 | 10 |
-| Mem transfer (Opt 2) | 79.6 ms | 4 | 1.51 |
-| meps (Opt 1) | 684 | 14 | 0 (need 900) |
-| **Total** | | **20 (+2 EC)** | **19.51** |
+| **Achieved Occupancy** | **80.69%** | 1 | **1** ✓ ≥ 65% |
+| **Memory Throughput** | **75.25%** | 1 | **1** ✓ ≥ 75% |
+| Kernel time (Opt 2) | 60.6 ms | 10 | 10 |
+| Mem transfer (Opt 2) | 80.3 ms | 4 | 1.49 |
+| meps (Opt 1) | 710 | 14 | 0 (need 900) |
+| **Total** | | **20 (+2 EC)** | **19.49** |
 
-**Full `grade.py` run** (not perf-only) confirms **19.51 / 20** — **both EC points
+**Full `grade.py` run** (not perf-only) confirms **19.49 / 20** — **both EC points
 earned**. Progression: ~16.9 (start) → 18.52 (occupancy EC via Trials 9–10) →
-**19.51** (memory-throughput EC via Trials 12–13). The only remaining unearned
-point is the Option 1 / transfer perf bucket, gated by the CPU-bound page-lock
-floor (needs kernel < ~31 ms or a gray-area transfer overlap). Details and trial
-log below.
+19.51 (memory-throughput EC via Trials 12–13) → **19.49 @ TILE=8192** (Trial 14:
+faster kernel, same grade, more headroom). The only remaining unearned point is
+the Option 1 / transfer perf bucket, which is **proven unreachable by legitimate
+means** — the D2H page-lock floors at ~54 ms (Trial 15), so kernel + transfer
+cannot drop under the 111 ms that 900 meps requires. Details and trial log below.
 
 ---
 
@@ -160,18 +161,20 @@ verdict**, in the order I ran them.
   |------|--------------|--------|----------|------|
   | 1024 | 4 KB | 88.13 ms | 83.83 | 581.5 |
   | 2048 | 8 KB | 73.60 ms | 83.53 | 636.4 |
-  | 4096 (shipped) | 16 KB | 66.24 ms | 83.60 | 667.4 |
+  | 4096 (then-shipped) | 16 KB | 66.24 ms | 83.60 | 667.4 |
   | **8192** | 32 KB | **61.84 ms** | 83.52 | **687.9** |
   | 16384 | 64 KB | — | — | **compile fail** |
 
 - **Verdict:** kernel time keeps falling monotonically (88 → 62 ms); **`TILE = 8192`
-  is the meps-best at 687.9** (+20 over the shipped 4096). `TILE = 16384` **fails
+  is the meps-best at 687.9** (+20 over the then-shipped 4096). `TILE = 16384` **fails
   to compile** — `ptxas: uses too much shared data (0x10000 / 64 KB, 0xc000 / 48 KB
   max)`: static `__shared__` is capped at 48 KB on Hopper. Going larger needs
   **dynamic** shared memory (`cudaFuncSetAttribute` opt-in, up to 227 KB) — see
-  the MEPS options below. Not yet adopted into the shipped config because
-  `TILE = 8192` trades away the Achieved-Occupancy EC point (occupancy cliffs at
-  that tile); `report.md` is also written around `TILE = 4096`.
+  the MEPS options below. At the time 8192 was *not* adopted because it cliffed
+  the Achieved-Occupancy EC point (occupancy ~46% pre-EC era). **Superseded by
+  Trial 14:** after Trials 12–13 raised the occupancy/throughput floors, 8192 was
+  re-tested, **keeps both EC points** (occ 80.7%, thpt 75.3%), and is now the
+  shipped config.
 
 ### Trial 7 — move `fill_tail` padding out of the H2D timer into the kernel timer
 - **Hypothesis:** `fill_tail` (the INT_MAX tail padding) was launched inside
@@ -495,18 +498,73 @@ Throughput EC; §4–§5.)
   touch the critical path. **Lesson: confirm any timing delta with interleaved
   A/B on this node before believing it.**
 
+### Trial 14 — adopt `TILE = 8192` (tested A/B, *kept* — faster kernel, EC safe)
+- **Hypothesis:** larger `TILE` fuses more steps per shared launch → fewer global
+  passes → faster kernel. Trial 6 found 8192 fastest but it *cliffed occupancy*
+  to 46% (pre-EC era). After Trials 12–13 lifted the occupancy/throughput floors,
+  re-test whether 8192 now keeps both EC points.
+- **Tried:** drift-controlled A/B/A/B at 100M (interleaved 4096 vs 8192 binaries,
+  cold first pair discarded), then a full `grade.py` at 8192.
+- **Measured:**
+
+  | | TILE=4096 | TILE=8192 |
+  |--|-----------|-----------|
+  | Kernel (A/B interleaved) | 66.2 / 66.7 / 66.2 ms | **60.8 / 61.3 / 60.9 ms** |
+  | Achieved Occupancy | 82.05% | 80.69% ✓ |
+  | Memory Throughput | 75.73% | 75.25% ✓ |
+  | meps | 685 | **710** |
+  | Total | 19.51 | 19.49 |
+
+- **Verdict: kept (shipped).** A real, reproducible **−5.4 ms kernel** (drift
+  controlled, so trustworthy unlike the Trial-12 bit-shift mirage). The occupancy
+  cliff is **gone** — branchless + cudaMemset raised the floor enough that 8192
+  stays above 65%. Same grade (19.49 ≈ 19.51, within transfer noise), faster
+  kernel, +5 ms Option-1 headroom. Both EC points retained.
+
+### Trial 15 — is the D2H floor real? (decisive re-measurement)
+- **Hypothesis (challenge):** the "D2H is floored ~64 ms" claim rested on one old
+  microbench. Re-measure directly, and test the chunked register+async-copy
+  pipeline that was previously only estimated — maybe overlap helps more than
+  assumed and brings Option 1 into range.
+- **Tried:** standalone benchmark of a 400 MB D2H, timed with the same cudaEvent
+  approach `main.cu` uses: (A) current malloc+register+copy, (B) chunked 32 MB
+  register + 2-stream async copy, (C) pageable floor; plus a decomposition of
+  register vs copy on pre-faulted memory.
+- **Measured (best of 3 each):**
+
+  | Path | D2H |
+  |------|-----|
+  | pageable malloc+copy | ~91 ms |
+  | current (malloc+register+copy) | ~63 ms |
+  | chunked register + async copy | ~60.5 ms |
+  | **decomposition:** page-lock (pre-faulted) | **~54 ms** |
+  | **decomposition:** pinned copy | ~7.5 ms |
+  | **theoretical floor = max(lock, copy)** | **~54 ms** |
+
+- **Verdict: D2H is a confirmed dead end for legitimate code.** The cost is the
+  **page-lock (~54 ms), not the copy (~7.5 ms)** — and page-locking is serial
+  driver page-table work that cannot overlap below its own duration. The chunked
+  pipeline I previously *estimated* at +0.17 I now *measured*: it saves ~2 ms
+  (63 → 60.5). Even a perfect pipeline floors at ~54 ms D2H. **Option 1 is
+  unreachable:** need kernel + transfer < 111 ms; transfer floor ≈ H2D 16 +
+  D2H 54 = **70 ms** best case (~80 ms realistic), leaving kernel < ~31–41 ms vs
+  the actual 60 ms. No legitimate lever closes a ~20–30 ms gap. The only escape
+  remains overlapping the page-lock under the *kernel* timer — the gray-area
+  timer-gaming move (§5), pending instructor sign-off.
+
 ## 5. Data transfer — biggest point bucket, but CPU-bound floor
 
-> **Status: legitimate optimization ~exhausted; the large prize is gray-area.**
+> **Status: legitimate optimization exhausted (measured, Trial 15); the large
+> prize is gray-area.**
 
-The perf bucket is `max(transfer_score + kernel_score, meps_score)`. Because the
-transfer floor is **CPU-bound** (the ~55 ms page-lock of a fresh 400 MB buffer,
-not the ~8 ms copy — Trials 0–4), the options split sharply on legitimacy:
+The perf bucket is `max(transfer_score + kernel_score, meps_score)`. Trial 15
+**measured** the floor: D2H = ~54 ms page-lock + ~7.5 ms copy, and the page-lock
+is serial driver work that can't overlap below itself. So the options:
 
 | Option | Legit? | Gain | Why |
 |--------|--------|------|-----|
-| Chunked register/copy pipeline (overlap CPU register with GPU copy) | ✅ clean | ~+0.17 | register (55 ms) ≫ copy (8 ms), so overlap barely helps |
-| Overlap D2H registration with the sort kernel | ⚠️ gray | +2.5–3.5 | hides the 55 ms register under the 66 ms kernel → D2H timer ~8 ms; also flips Option 1 (96 ms total → ~1040 meps → 14) |
+| Chunked register/copy pipeline (overlap CPU register with GPU copy) | ✅ clean | ~+0.10 (measured ~2 ms) | page-lock (54 ms) ≫ copy (7.5 ms), so overlap floors at ~54 ms |
+| Overlap D2H registration with the sort kernel | ⚠️ gray | +2.5–3.5 | hides the 54 ms lock under the 60 ms kernel → D2H timer ~8 ms; also flips Option 1 |
 | Pinned alloc outside timers | ❌ illegal | — | static/global allocation banned |
 | Reuse pinned `arrCpu` as output | ❌ illegal | — | breaks the `arrSortedGpu != arrCpu` check |
 
@@ -517,34 +575,41 @@ But the only change large enough to get there is overlapping the output-buffer
 page-lock with the kernel, whose *intent* is to move cost out of the D2H timer —
 squarely what the rubric's "any code whose intent is to avoid the timers is not
 permitted" clause targets. **Not shipped without instructor sign-off.** The clean
-chunked-pipeline variant is worth only ~+0.17 and is not currently implemented.
+chunked-pipeline variant is worth only ~+0.10 and is not currently implemented.
 
-## 6. Squeeze kernel time (note: revised by Trials 5 & 9)
+## 6. Squeeze kernel time (note: revised by Trials 5, 9 & 14)
 
-> **Status: hypothesis revised.** Kernel time *is* a meps lever (Trials 5, 9), but
-> the measured best (66 ms) is still ~2× the ~31 ms an Option 1 flip needs, so it
-> does not currently change the perf score on its own.
+> **Status: hypothesis revised.** Kernel time *is* a meps lever (Trials 5, 9, 14),
+> and `TILE = 8192` is now shipped at **60.6 ms** — but that is still ~2× the
+> ~31 ms an Option 1 flip needs, so it does not change the perf score.
 
-- **Original hypothesis:** with transfers fixed, a faster kernel feeds meps directly; `TILE = 8192` gives ~64 ms (vs 67.6) so total could approach the 900-meps flip.
-- **Why revised:** transfer floors at ~80 ms, so the flip needs kernel < ~31 ms. `BLOCK_DIM` (66–100 ms) and `TILE` (64–81 ms) move kernel time but neither approaches 31 ms; pair-index (Trial 9) and bit-shift math (Trial 12) are kernel-time-neutral on this node within noise. Kernel time is already maxed for the Option-2 score (10/10), so shrinking it earns nothing *unless* it crosses the ~31 ms Option-1 line — which needs a structural change (multi-element per thread or a fused build kernel; `int4` was tried and regressed, Trial 8), not just parameter tuning.
+- **Original hypothesis:** with transfers fixed, a faster kernel feeds meps directly; `TILE = 8192` gives ~61 ms so total could approach the 900-meps flip.
+- **Why revised:** Trial 15 measured the transfer floor at ~70–80 ms, so the flip needs kernel < ~31–41 ms. `BLOCK_DIM` (66–100 ms) and `TILE` (60–88 ms, best 60.6 @ 8192) move kernel time but none approaches 31 ms; pair-index (Trial 9) and bit-shift math (Trial 12) are kernel-time-neutral within noise. Kernel time is already maxed for the Option-2 score (10/10), so shrinking it earns nothing *unless* it crosses the ~31 ms Option-1 line — which needs a structural change (multi-element per thread or a fused build kernel; `int4` Trial 8 and register-blocking Trial 11 both regressed), not just parameter tuning.
+- **One untested lever with upside:** **dynamic shared memory** (`cudaFuncSetAttribute`, opt-in to ~227 KB) to push `TILE` past the 48 KB static cap (16384/32768). 8192 gave −5 ms over 4096; a larger tile might give a few more — but won't bridge a ~30 ms gap, so it's headroom/elegance, not points.
 
 ---
 
 ## Realistic ceiling
 
-Current measured grade: **19.51 / 20** (full `grade.py`). Earned: correctness (5),
-report (1), kernel time (10/10), partial transfer (1.51), and **both EC points** —
-Achieved Occupancy (Trials 9–10) and Memory Throughput (Trials 12–13).
+Current measured grade: **19.49 / 20** (full `grade.py`, `TILE = 8192`). Earned:
+correctness (5), report (1), kernel time (10/10), partial transfer (1.49), and
+**both EC points** — Achieved Occupancy (Trials 9–10) and Memory Throughput
+(Trials 12–13). Kernel time improved to 60.6 ms (Trial 14) for headroom, though
+it does not change the score.
 
 Only remaining unearned point:
 
-- **Transfer score (+~2.49) / Option 1 (+~3 net):** the biggest bucket, but the
-  legitimate floor is CPU-bound (~+0.17 from a clean chunked pipeline). The large
-  prize requires overlapping the output page-lock with the kernel — gray-area
-  under the anti-timer-gaming rule, **pending instructor sign-off** (§5).
+- **Transfer score (+~2.5) / Option 1 (+~3 net):** the biggest bucket, but
+  **Trial 15 measured the D2H floor at ~54 ms (page-lock)** — proving the
+  legitimate optimization is essentially exhausted (~+0.10 from a clean chunked
+  pipeline). The large prize requires overlapping the output page-lock with the
+  kernel — gray-area under the anti-timer-gaming rule, **pending instructor
+  sign-off** (§5). Option 1 is **measurably unreachable** otherwise: kernel
+  (60 ms) + transfer floor (~70–80 ms) ≈ 130–140 ms ≫ the 111 ms cap.
 
 **Honest ceiling without the gray-area change: ~19.5** (current), since both EC
-points are now banked and the kernel/transfer scores are at their legitimate
-floors. With instructor approval of the kernel-overlapped D2H registration, the
+points are now banked and the kernel/transfer scores are at their measured
+legitimate floors. With instructor approval of the kernel-overlapped D2H
+registration, the
 perf bucket could reach ~14 → grade approaching the **20 + 2 EC** cap. The clean,
-shippable recommendation is to **bank 19.51**.
+shippable recommendation is to **bank 19.49**.
