@@ -94,6 +94,7 @@ void core_c::run_a_cycle(){
   // Task 1: Compute Core Retirement
   // ---------------------------------------------------------------------------
   // Check execution buffer for completed instructions and retire them
+  // c_exec_buffer
   remove_insts_in_exec_buffer(c_cycle);
 
   // ---------------------------------------------------------------------------
@@ -244,21 +245,25 @@ void core_c::run_a_cycle(){
   //   - Non-tensor compute (ALU): always added to exec_buffer for dependency tracking
   //     only (ALU units are abundant on real GPUs, not capacity-bound).
 
-  if(/*compute ?*/) {
+  if (is_compute(trace_info->m_opcode)) {
 
     // Check whether this is a tensor op (opcodes starting with 'H', e.g., HMMA)
-    std::string opcode_str = GPU_NVBIT_OPCODE[trace_info->m_opcode];
-    bool is_tensor_op = (opcode_str.length() > 0 && opcode_str[0] == 'H');
-
+    bool is_tensor_op = is_tensor(trace_info->m_opcode)
+    int latency = get_latency(trace_info->m_opcode, gpusim->m_tensor_latency);
+    int completion_cycle = c_cycle + latency;
+    // Since the readme says the provided traces only have one destination register, use index 0
+    int dest_reg = trace_info->m_num_dest_regs > 0 ? trace_info->m_dst[0] : -1;
     if (is_tensor_op) {
       // TODO: add to exec_buffer with width-limit check
-      if(/*buffer full ?*/) {
+      if(c_exec_buffer.size() > gpusim->m_execution_width) {
         stall_cycles++;
         return;
       }
+      add_insts_to_exec_buffer(completion_cycle, c_running_warp->warp_id, dest_reg);
       tensor_instr_cnt++;
     } else {
       // TODO: unconditionally add to exec_buffer for dependency tracking
+      add_insts_to_exec_buffer(completion_cycle, c_running_warp->warp_id, dest_reg);
     }
   }
 
@@ -278,6 +283,7 @@ void core_c::run_a_cycle(){
 
 bool core_c::add_insts_to_exec_buffer(int completion_cycle, uint64_t warp_id, int dest_reg) {
   // Implement logic
+  c_exec_buffer.push_back({warp_id, dest_reg, completion_cycle});
   return false;
 }
 
@@ -285,6 +291,13 @@ bool core_c::add_insts_to_exec_buffer(int completion_cycle, uint64_t warp_id, in
 
 void core_c::remove_insts_in_exec_buffer(int current_cycle) {
   // Implement logic
+  for (auto it = c_exec_buffer.begin(); it != c_exec_buffer.end();) {
+    if (it->completion_cycle <= current_cycle) {
+      it = c_exec_buffer.erase(it);
+    } else {
+      ++it;
+    }
+  }
 }
 
 bool core_c::schedule_warps(Warp_Scheduling_Policy_Types policy) {

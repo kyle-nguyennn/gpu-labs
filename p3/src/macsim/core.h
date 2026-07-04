@@ -105,7 +105,7 @@ private:
   // Greedy Then Oldest (GTO) warp scheduler
   bool schedule_warps_gto();
 
-  // Greedy Then Oldest (CCWS) warp scheduler
+  // Cache-Conscious Wavefront Scheduling (CCWS) warp scheduler
   bool schedule_warps_ccws();
 
   // Send a memory request
