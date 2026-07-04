@@ -248,7 +248,7 @@ void core_c::run_a_cycle(){
   if (is_compute(trace_info->m_opcode)) {
 
     // Check whether this is a tensor op (opcodes starting with 'H', e.g., HMMA)
-    bool is_tensor_op = is_tensor(trace_info->m_opcode)
+    bool is_tensor_op = is_tensor(trace_info->m_opcode);
     int latency = get_latency(trace_info->m_opcode, gpusim->m_tensor_latency);
     int completion_cycle = c_cycle + latency;
     // Since the readme says the provided traces only have one destination register, use index 0
@@ -321,15 +321,23 @@ bool core_c::schedule_warps(Warp_Scheduling_Policy_Types policy) {
 bool core_c::schedule_warps_rr() {
   // TODO: Task 2: Update Round Robin to skip warps that return true for check_dependency()
 
-  if (!c_dispatched_warps.empty()) {
+  int n_iter = c_dispatched_warps.size();
+  while (n_iter-- > 0) {
     // Iterate through dispatched warps.
     // IF check_dependency(warp) is false:
     //    Schedule it
     //    Return false (don't skip cycle)
-
-    c_running_warp = c_dispatched_warps.front();
-    c_dispatched_warps.erase(c_dispatched_warps.begin());
-    return false;
+    warp_s *candidate = c_dispatched_warps.front();
+    if (!candidate->trace_buffer.empty() && check_dependency(candidate)) {
+      // If there is a dependency, move the warp to the back of the queue and continue checking
+      c_dispatched_warps.push_back(candidate);
+      c_dispatched_warps.erase(c_dispatched_warps.begin());
+    } else {
+      // If there is no dependency, schedule the warp and return false (don't skip cycle)
+      c_dispatched_warps.erase(c_dispatched_warps.begin());
+      c_running_warp = candidate;
+      return false;
+    }
   }
   return true;
 }
@@ -340,6 +348,18 @@ bool core_c::schedule_warps_rr() {
 // Note: Only check dependencies for the SAME warp ID.
 bool core_c::check_dependency(warp_s* warp) {
     // Implement logic
+    for (const auto& entry : c_exec_buffer) {
+      if (entry.warp_id != warp->warp_id || entry.dest_reg == -1) {
+        continue;
+      }
+      trace_info_nvbit_small_s *trace_info = warp->trace_buffer.front();
+      for (int i = 0; i < trace_info->m_num_read_regs; ++i) {
+        if (trace_info->m_src[i] == entry.dest_reg) {
+          return true;
+        }
+      }
+      
+    }
     return false;
 }
 

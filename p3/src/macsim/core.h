@@ -97,6 +97,7 @@ private:
   warp_s* c_running_warp = NULL;
 
   // Warp scheduler
+  // Return true if skip cycle (stall)
   bool schedule_warps(Warp_Scheduling_Policy_Types policy);
 
   // Round Robin (RR) warp scheduler
